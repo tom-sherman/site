@@ -7,3 +7,8 @@
 }
 
 @stylex;
+
+/* Clicks during a view transition fall through to the live page. */
+::view-transition {
+  pointer-events: none;
+}
