@@ -1,0 +1,21 @@
+import path from "node:path";
+const dev = process.env.NODE_ENV !== "production";
+
+const config = {
+  presets: ["next/babel"],
+  plugins: [
+    [
+      "@stylexjs/babel-plugin",
+      {
+        dev,
+        runtimeInjection: false,
+        enableInlinedConditionalMerge: true,
+        treeshakeCompensation: true,
+        aliases: { "@/*": [path.join(__dirname, "*")] },
+        unstable_moduleResolution: { type: "commonJS" },
+        // ... other StyleX configuration
+      },
+    ],
+  ],
+};
+export default config;

@@ -14,12 +14,15 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@stylexjs/babel-plugin": "^0.19.1",
+    "@stylexjs/postcss-plugin": "^0.19.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "prettier": "^3.9.9",
     "typescript": "^5"
   },
   "packageManager": "pnpm@12.1.0"
