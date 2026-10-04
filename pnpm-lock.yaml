@@ -109,6 +109,9 @@ importers:
 
   .:
     dependencies:
+      '@stylexjs/atoms':
+        specifier: ^0.19.1
+        version: 0.19.1(@stylexjs/stylex@0.19.1)
       '@stylexjs/stylex':
         specifier: ^0.19.1
         version: 0.19.1
@@ -568,6 +571,11 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@stylexjs/atoms@0.19.1':
+    resolution: {integrity: sha512-6cX61BOZCLhfTOpuqxjWbtjHg2oz47zm88+dinhy5ZeEfughLhO9BAncrp3OTBKHwGqFubGnElHTYuwXzPrZww==}
+    peerDependencies:
+      '@stylexjs/stylex': 0.19.1
 
   '@stylexjs/babel-plugin@0.19.1':
     resolution: {integrity: sha512-Ig3crX6MuGWDEAx+f89aLxTQUWVeEc2Aco2moIdcObyvo7hZJgU26rxJN3k7geFjhi+5dfna6TNR8iTRK0PQGA==}
@@ -2354,6 +2362,10 @@ snapshots:
   '@nolyfill/is-core-module@1.0.39': {}
 
   '@rtsao/scc@1.1.0': {}
+
+  '@stylexjs/atoms@0.19.1(@stylexjs/stylex@0.19.1)':
+    dependencies:
+      '@stylexjs/stylex': 0.19.1
 
   '@stylexjs/babel-plugin@0.19.1(supports-color@7.2.0)':
     dependencies:

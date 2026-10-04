@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Instrument+Serif:ital@0;1&amp;family=Martian+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:oklch(0.962 0.007 95);color:oklch(0.2 0.012 95);font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:underline;text-decoration-color:oklch(0.75 0.01 95);text-underline-offset:3px}
+a:hover{color:oklch(0.2 0.012 95);text-decoration-color:currentColor}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</helmet>
+
+<div style="position:sticky;top:0;z-index:20;background:oklch(0.2 0.012 95);color:oklch(0.96 0.006 95);font-family:'Martian Mono',monospace;font-size:11px;">
+  <div style="max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,24px);height:40px;display:flex;align-items:center;gap:12px;">
+    <span style="display:flex;align-items:center;gap:6px;background:oklch(0.88 0.19 125);color:oklch(0.2 0.012 95);padding:3px 7px;font-weight:500;letter-spacing:.08em;flex-shrink:0;">{{ liveDot }}NOW</span>
+    <span style="width:22px;height:22px;flex-shrink:0;background:{{ now.art }};"></span>
+    <span style="min-width:64px;flex:1 1 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="opacity:.55;">{{ now.kind }} </span><span style="font-weight:500;">{{ now.title }}</span><span style="opacity:.55;"> — {{ now.sub }}</span></span>
+    <sc-if value="{{ now.hasBar }}" hint-placeholder-val="{{ true }}">
+      <span style="width:72px;height:3px;background:oklch(0.38 0.012 95);flex-shrink:0;position:relative;"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ now.pct }};background:oklch(0.88 0.19 125);"></span></span>
+    </sc-if>
+    <span style="opacity:.7;flex-shrink:0;font-variant-numeric:tabular-nums;">{{ now.elapsed }}</span>
+    <button onClick="{{ cycleNow }}" title="Cycle current activities" style="all:unset;cursor:pointer;flex-shrink:0;border:1px solid oklch(0.4 0.012 95);padding:2px 7px;" style-hover="border-color:oklch(0.88 0.19 125);color:oklch(0.88 0.19 125);">{{ now.pos }} ⇄</button>
+  </div>
+</div>
+
+<header style="max-width:1240px;margin:0 auto;padding:72px clamp(16px,4vw,24px) 80px;box-sizing:border-box;">
+  <div style="display:flex;flex-wrap:wrap;gap:8px;font-family:'Martian Mono',monospace;font-size:11px;color:oklch(0.57 0.01 95);">
+    <span>tomsherman.dev</span><span>/</span><span style="color:oklch(0.2 0.012 95);">feed</span>
+    <span style="margin-left:auto;">last activity {{ updatedAgo }}</span>
+  </div>
+  <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(60px,11vw,136px);line-height:.88;letter-spacing:-.025em;margin:56px 0 0;display:flex;flex-wrap:wrap;align-items:center;gap:0 .18em;">
+    <span>Tom</span>
+    <span style="position:relative;display:inline-flex;width:.72em;height:.72em;border-radius:50%;background:repeating-linear-gradient(135deg,oklch(0.8 0.17 125) 0 2px,oklch(0.88 0.19 125) 2px 8px);align-items:center;justify-content:center;flex-shrink:0;"><span style="font-family:'Martian Mono',monospace;font-size:11px;letter-spacing:0;line-height:1;color:oklch(0.2 0.012 95);">photo</span></span>
+    <em>Sherman</em>
+    <sc-if value="{{ marginalia }}" hint-placeholder-val="{{ true }}">
+      <span style="font-family:'Martian Mono',monospace;font-size:11px;letter-spacing:0;line-height:1.5;color:oklch(0.57 0.01 95);transform:rotate(-4deg);align-self:flex-end;margin-bottom:.6em;max-width:16ch;">↖ a person, mostly online</span>
+    </sc-if>
+  </h1>
+  <div style="display:flex;flex-wrap:wrap;gap:16px 40px;align-items:flex-end;margin-top:32px;">
+    <p style="font-size:clamp(19px,2.1vw,23px);line-height:1.35;max-width:32ch;margin:0;text-wrap:pretty;">Staff Engineer who cares deeply about the open web and design systems.</p>
+    <nav style="display:flex;flex-wrap:wrap;gap:6px 18px;font-family:'Martian Mono',monospace;font-size:11px;">
+      <a href="#">bluesky ↗</a>
+      <a href="#">x ↗</a>
+      <a href="#">github ↗</a>
+      <a href="#">letterboxd ↗</a>
+      <a href="#">last.fm ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main style="max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,24px) 112px;box-sizing:border-box;display:flex;flex-direction:row-reverse;flex-wrap:wrap;align-items:flex-start;gap:48px 88px;">
+
+  <sc-if value="{{ showRail }}" hint-placeholder-val="{{ true }}">
+    <aside style="flex:1 1 300px;min-width:0;position:{{ railPos }};top:64px;padding-top:12px;">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'Martian Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;">
+        <span style="background:oklch(0.88 0.19 125);padding:2px 6px;font-weight:500;">◆ Pinned</span>
+        <span style="flex:1;height:1px;background:oklch(0.915 0.007 95);"></span>
+        <span style="color:oklch(0.57 0.01 95);">latest</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;">
+        <sc-for list="{{ pinned }}" as="p" hint-placeholder-count="2">
+          <a href="#" style="display:block;text-decoration:none;color:inherit;background:oklch(0.998 0.002 95);border:1px solid oklch(0.885 0.008 95);box-shadow:0 1px 2px oklch(0.2 0.02 95 / .04),0 18px 40px -24px oklch(0.2 0.02 95 / .3);" style-hover="border-color:oklch(0.2 0.012 95);">
+            <sc-if value="{{ p.hasMedia }}" hint-placeholder-val="{{ true }}">
+              <div style="aspect-ratio:16/8;background:{{ p.mediaBg }};border-bottom:1px solid oklch(0.915 0.007 95);display:flex;align-items:flex-end;padding:8px;box-sizing:border-box;font-family:'Martian Mono',monospace;font-size:10px;color:oklch(0.45 0.012 95);">{{ p.media }}</div>
+            </sc-if>
+            <div style="padding:14px 16px 18px;">
+              <div style="display:flex;gap:8px;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);"><span style="color:oklch(0.2 0.012 95);">{{ p.glyph }} {{ p.label }}</span><span style="margin-left:auto;">{{ p.time }}</span></div>
+              <div style="font-family:'Instrument Serif',serif;font-size:25px;line-height:1.05;margin-top:8px;text-wrap:pretty;">{{ p.title }}</div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+      <div style="margin-top:36px;font-family:'Martian Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:oklch(0.57 0.01 95);">More highlights</div>
+      <div style="margin-top:6px;">
+        <sc-for list="{{ moreHi }}" as="m" hint-placeholder-count="2">
+          <a href="#" style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:9px 0;border-bottom:1px dashed oklch(0.915 0.007 95);text-decoration:none;color:inherit;" style-hover="background:oklch(0.95 0.008 95);">
+            <span style="font-family:'Martian Mono',monospace;font-size:11px;">{{ m.glyph }}</span>
+            <span style="font-size:14.5px;line-height:1.3;">{{ m.title }}</span>
+            <span style="font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);">{{ m.time }}</span>
+          </a>
+        </sc-for>
+      </div>
+    </aside>
+  </sc-if>
+
+  <section style="flex:999 1 540px;min-width:0;">
+    <div style="position:sticky;top:40px;z-index:10;background:oklch(0.962 0.007 95);padding:16px 0;display:flex;flex-wrap:{{ chipWrap }};overflow-x:auto;scrollbar-width:none;gap:6px;border-bottom:1px solid oklch(0.915 0.007 95);font-family:'Martian Mono',monospace;font-size:11px;">
+      <sc-for list="{{ filters }}" as="f" hint-placeholder-count="7">
+        <button onClick="{{ f.pick }}" style="all:unset;cursor:pointer;flex-shrink:0;display:flex;gap:6px;align-items:center;padding:4px 9px;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.fg }};" style-hover="border-color:oklch(0.2 0.012 95);">
+          <span>{{ f.glyph }}</span><span>{{ f.label }}</span><span style="opacity:.55;">{{ f.count }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{ days }}" as="day" hint-placeholder-count="2">
+      <div>
+        <div style="display:grid;grid-template-columns:{{ gut }};align-items:center;padding:56px 0 18px;font-family:'Martian Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">
+          <span style="text-align:right;color:oklch(0.57 0.01 95);">{{ day.short }}</span>
+          <span></span>
+          <span style="display:flex;gap:10px;align-items:center;"><span style="font-weight:500;">{{ day.label }}</span><span style="flex:1;height:1px;background:oklch(0.915 0.007 95);"></span><span style="color:oklch(0.57 0.01 95);">{{ day.count }}</span></span>
+        </div>
+        <sc-for list="{{ day.entries }}" as="e" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:{{ gut }};">
+            <time title="{{ e.abs }}" style="text-align:right;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);padding-top:{{ e.pad }};font-variant-numeric:tabular-nums;">{{ e.time }}</time>
+            <div style="position:relative;display:flex;justify-content:center;">
+              <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:oklch(0.915 0.007 95);"></div>
+              <sc-if value="{{ e.isHigh }}"><span style="position:relative;margin-top:16px;width:9px;height:9px;background:oklch(0.2 0.012 95);transform:rotate(45deg);outline:4px solid oklch(0.962 0.007 95);"></span></sc-if>
+              <sc-if value="{{ e.isMed }}"><span style="position:relative;margin-top:14px;width:7px;height:7px;border-radius:50%;border:1.5px solid oklch(0.2 0.012 95);background:oklch(0.962 0.007 95);"></span></sc-if>
+              <sc-if value="{{ e.isLow }}"><span style="position:relative;margin-top:12px;width:5px;height:5px;border-radius:50%;background:oklch(0.6 0.012 95);"></span></sc-if>
+            </div>
+            <div style="min-width:0;">
+
+              <sc-if value="{{ e.isHigh }}">
+                <a href="#" style="display:block;text-decoration:none;color:inherit;margin:8px 0 44px;background:oklch(0.998 0.002 95);border:1px solid oklch(0.885 0.008 95);box-shadow:0 1px 2px oklch(0.2 0.02 95 / .04),0 18px 40px -24px oklch(0.2 0.02 95 / .3);" style-hover="border-color:oklch(0.2 0.012 95);">
+                  <div style="display:flex;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid oklch(0.915 0.007 95);font-family:'Martian Mono',monospace;font-size:10.5px;letter-spacing:.04em;">
+                    <span>{{ e.glyph }}</span><span style="text-transform:uppercase;">{{ e.label }}</span><span style="color:oklch(0.57 0.01 95);">· {{ e.meta }}</span><span style="margin-left:auto;">↗</span>
+                  </div>
+                  <sc-if value="{{ e.isBlog }}">
+                    <div style="aspect-ratio:16/7;background:repeating-linear-gradient(135deg,oklch(0.92 0.008 95) 0 1px,oklch(0.96 0.006 95) 1px 8px);border-bottom:1px solid oklch(0.915 0.007 95);display:flex;align-items:flex-end;padding:10px 14px;box-sizing:border-box;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.45 0.012 95);">{{ e.media }}</div>
+                    <div style="padding:22px 24px 28px;">
+                      <div style="font-family:'Instrument Serif',serif;font-size:clamp(28px,3.4vw,38px);line-height:1;letter-spacing:-.01em;text-wrap:pretty;">{{ e.title }}</div>
+                      <p style="margin:12px 0 0;font-size:15.5px;line-height:1.5;color:oklch(0.35 0.012 95);max-width:62ch;text-wrap:pretty;">{{ e.text }}</p>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ e.isThread }}">
+                    <div style="padding:22px 24px 24px;">
+                      <div style="display:flex;gap:10px;align-items:center;">
+                        <span style="width:34px;height:34px;border-radius:50%;background:oklch(0.88 0.19 125);display:flex;align-items:center;justify-content:center;font-family:'Martian Mono',monospace;font-size:11px;">TS</span>
+                        <span style="display:flex;flex-direction:column;"><span style="font-weight:600;font-size:14.5px;">Tom Sherman</span><span style="font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);">@tomsherman.dev</span></span>
+                      </div>
+                      <p style="margin:14px 0 0;font-size:18px;line-height:1.45;text-wrap:pretty;max-width:56ch;">{{ e.text }}</p>
+                      <div style="margin-top:14px;aspect-ratio:16/8;background:repeating-linear-gradient(135deg,oklch(0.92 0.008 95) 0 1px,oklch(0.96 0.006 95) 1px 8px);border:1px solid oklch(0.915 0.007 95);display:flex;align-items:flex-end;padding:10px;box-sizing:border-box;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.45 0.012 95);">{{ e.media }}</div>
+                      <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);">
+                        <span style="display:flex;">
+                          <sc-for list="{{ e.people }}" as="pp"><span title="{{ pp.name }}" style="width:24px;height:24px;margin-right:-6px;border-radius:50%;background:{{ pp.bg }};border:2px solid oklch(0.998 0.002 95);display:flex;align-items:center;justify-content:center;font-size:9px;color:oklch(0.2 0.012 95);">{{ pp.ini }}</span></sc-for>
+                        </span>
+                        <span style="margin-left:6px;">{{ e.stats }}</span>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ e.isReview }}">
+                    <div style="display:grid;grid-template-columns:clamp(84px,18%,120px) minmax(0,1fr);gap:24px;padding:24px;">
+                      <div style="aspect-ratio:2/3;background:{{ e.mediaBg }};display:flex;align-items:flex-end;padding:6px;box-sizing:border-box;font-family:'Martian Mono',monospace;font-size:9.5px;color:oklch(0.25 0.012 95);">poster</div>
+                      <div style="min-width:0;">
+                        <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;"><span style="font-family:'Instrument Serif',serif;font-size:clamp(30px,3.4vw,40px);line-height:1;">{{ e.title }}</span><span style="font-family:'Martian Mono',monospace;font-size:11px;color:oklch(0.57 0.01 95);">{{ e.year }}</span></div>
+                        <div style="font-size:18px;letter-spacing:.08em;margin-top:8px;">{{ e.stars }}</div>
+                        <p style="margin:10px 0 0;font-size:15.5px;line-height:1.5;color:oklch(0.35 0.012 95);max-width:58ch;text-wrap:pretty;">{{ e.text }}</p>
+                      </div>
+                    </div>
+                  </sc-if>
+                </a>
+              </sc-if>
+
+              <sc-if value="{{ e.isMed }}">
+                <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 8px 30px 2px;">
+                  <span title="{{ e.av.name }}" style="width:28px;height:28px;flex-shrink:0;border-radius:{{ e.av.r }};background:{{ e.av.bg }};display:flex;align-items:center;justify-content:center;font-family:'Martian Mono',monospace;font-size:9.5px;">{{ e.av.ini }}</span>
+                  <div style="min-width:0;flex:1;">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px 8px;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.57 0.01 95);">
+                      <span style="color:oklch(0.2 0.012 95);">{{ e.glyph }} {{ e.label }}</span>
+                      <sc-if value="{{ e.replyTo }}"><span>↳ replying to <span style="color:oklch(0.2 0.012 95);">{{ e.replyTo }}</span></span></sc-if>
+                    </div>
+                    <div style="font-size:15.5px;line-height:1.45;margin-top:4px;text-wrap:pretty;max-width:60ch;">{{ e.text }}</div>
+                  </div>
+                  <span style="font-family:'Martian Mono',monospace;font-size:11px;white-space:nowrap;padding-top:1px;">{{ e.aside }}</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ e.isLow }}">
+                <div style="padding:8px 0 30px 2px;">
+                  <button onClick="{{ e.toggle }}" style="all:unset;cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-family:'Martian Mono',monospace;font-size:10.5px;color:oklch(0.45 0.012 95);" style-hover="color:oklch(0.2 0.012 95);">
+                    <sc-for list="{{ e.parts }}" as="pt"><span style="display:flex;gap:6px;"><span>{{ pt.glyph }}</span><span>{{ pt.text }}</span></span></sc-for>
+                    <span style="color:oklch(0.2 0.012 95);text-decoration:underline;text-underline-offset:3px;text-decoration-color:oklch(0.75 0.01 95);">{{ e.toggleLabel }}</span>
+                  </button>
+                  <sc-if value="{{ e.open }}">
+                    <div style="margin-top:10px;border-left:1px dashed oklch(0.8 0.01 95);padding-left:12px;display:grid;gap:3px;">
+                      <sc-for list="{{ e.items }}" as="it">
+                        <div style="display:grid;grid-template-columns:62px 12px minmax(0,1fr);gap:8px;align-items:center;">
+                          <span style="font-family:'Martian Mono',monospace;font-size:10px;color:oklch(0.57 0.01 95);">{{ it.time }}</span>
+                          <span style="width:10px;height:10px;background:{{ it.tint }};"></span>
+                          <span style="font-size:13px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ it.text }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="display:grid;grid-template-columns:{{ gut }};padding-top:20px;font-family:'Martian Mono',monospace;font-size:11px;color:oklch(0.57 0.01 95);">
+      <span></span><span style="text-align:center;">⋮</span><a href="#">load older →</a>
+    </div>
+  </section>
+</main>
+
+<footer style="border-top:1px solid oklch(0.915 0.007 95);">
+  <div style="max-width:1240px;margin:0 auto;padding:48px clamp(16px,4vw,24px) 72px;box-sizing:border-box;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:48px 88px;font-family:'Martian Mono',monospace;font-size:11px;line-height:1.7;color:oklch(0.57 0.01 95);">
+    <div><div style="color:oklch(0.2 0.012 95);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Colophon</div>Set in Instrument Serif, Geist and Martian Mono. Hand-built with web components. No trackers, no cookies.</div>
+    <div><div style="color:oklch(0.2 0.012 95);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Sources</div>Feed pulled from Bluesky, X, Letterboxd, Last.fm, Steam and GitHub.</div>
+    <div style="display:flex;flex-direction:column;justify-content:space-between;gap:12px;">
+      <span>© 2026 Tom Sherman</span>
+      <sc-if value="{{ marginalia }}" hint-placeholder-val="{{ true }}"><span style="align-self:flex-start;border:1px solid oklch(0.2 0.012 95);color:oklch(0.2 0.012 95);padding:3px 8px;transform:rotate(-1.5deg);">you are visitor №004,281</span></sc-if>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;timeFormat&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;relative&quot;,&quot;tminus&quot;,&quot;absolute&quot;],&quot;default&quot;:&quot;relative&quot;,&quot;tsType&quot;:&quot;'relative'|'tminus'|'absolute'&quot;},&quot;marginalia&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showRail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const M=6e4,H=36e5,D=864e5;
+const av=(name,hue)=>({name,ini:name.split(' ').map(s=>s[0]).join('').slice(0,2),bg:`oklch(0.8 0.12 ${hue})`,r:'50%'});
+const TOM={name:'Tom Sherman',ini:'TS',bg:'oklch(0.88 0.19 125)',r:'50%'};
+const poster=h=>({name:'',ini:'',bg:`repeating-linear-gradient(135deg,oklch(0.7 0.12 ${h}) 0 1px,oklch(0.8 0.1 ${h}) 1px 6px)`,r:'2px'});
+const SONGS=[["Cocteau Twins","Heaven or Las Vegas"],["Stereolab","French Disko"],["Broadcast","Tears in the Typing Pool"],["Boards of Canada","Roygbiv"],["Alvvays","Belinda Says"],["Khruangbin","Maria También"],["Jockstrap","Greatest Hits"],["Slowdive","Alison"],["Caroline Polachek","Welcome to My Island"],["Japanese Breakfast","Be Sweet"],["Aphex Twin","Avril 14th"],["Beach House","Space Song"],["Men I Trust","Show Me How"],["Yo La Tengo","Autumn Sweater"]];
+const CATS=[['all','*','All'],['writing','¶','Writing'],['posts','✱','Posts'],['film','◐','Film'],['music','♫','Music'],['games','▶','Games'],['code','⌥','Code']];
+const STRIPE='repeating-linear-gradient(135deg,oklch(0.93 0.006 95) 0 1px,oklch(0.975 0.004 95) 1px 8px)';
+const NOW=[
+  {kind:'Listening to',title:'Tears in the Typing Pool',sub:'Broadcast',dur:200,start:73,hue:330},
+  {kind:'Playing',title:'Balatro',sub:'Ante 6 · Blue Stake',start:3720,hue:40}];
+
+function build(now){
+  const t=o=>now-o, items=[];
+  [
+    {type:'blog',cat:'writing',o:26*H+10*M,glyph:'¶',label:'Blog post',meta:'9 min read',title:"Design tokens are a lie we tell ourselves (and that's fine)",text:"Every token system I've shipped eventually grew a token called something like color-text-weird. This is about making peace with that, and about the three layers that actually matter.",media:'hero image — token layer diagram'},
+    {type:'thread',cat:'posts',o:3*D+2*H,glyph:'✱',label:'Bluesky thread',meta:'1/12',rTitle:'Shipping one design system to 40 teams',text:"Thread: everything I learned shipping one design system to 40 product teams without a single breaking change. Well. One breaking change. We'll get to it.",media:'screenshot — the changelog entry',stats:'48 replies · 112 reposts · 640 likes',people:[av('Mira Okafor',20),av('Jun Park',250),av('Sasha Lind',160),av('Dev Rao',300)]},
+    {type:'review',cat:'film',o:5*D+3*H,glyph:'◐',label:'Film review',meta:'Letterboxd',title:'Perfect Days',year:'2023',stars:'★★★★½',text:"A man cleans public toilets in Tokyo and listens to cassettes. I left wanting to refactor nothing, ship nothing, and buy a film camera.",hue:200},
+    {type:'blog',cat:'writing',o:9*D+5*H,glyph:'¶',label:'Blog post',meta:'14 min read',title:'One web component, three framework migrations',text:"The date picker we wrote in 2021 has outlived Angular, a React rewrite, and a brief, regrettable flirtation with micro-frontends. Notes on writing UI that doesn't care who's rendering it.",media:'diagram — component boundary'},
+  ].forEach(x=>items.push({...x,pri:'high',ts:t(x.o)}));
+  [
+    {cat:'posts',o:2*H+5*M,glyph:'✱',label:'Bluesky',text:'the fact that <dialog> just works now still makes me a little emotional',aside:'♡ 212',av:TOM},
+    {cat:'posts',o:5*H+20*M,glyph:'✱',label:'Bluesky',replyTo:'@mira.codes',text:'popover + anchor positioning is the combo. delete your tooltip library. feel the lightness.',aside:'♡ 88',av:av('Mira Okafor',20)},
+    {cat:'film',o:30*H,glyph:'◐',label:'Rated on Letterboxd',text:'Alien: Romulus (2024)',aside:'★★★',av:poster(140)},
+    {cat:'posts',o:2*D+4*H,glyph:'✕',label:'X',text:'every design system should ship a /weird folder. components that are load-bearing but nobody can explain. honour them.',aside:'♡ 1.2k',av:TOM},
+    {cat:'posts',o:4*D+6*H,glyph:'✱',label:'Bluesky',text:'new keyboard arrived. typing this very slowly and with great reverence',aside:'♡ 41',av:TOM},
+    {cat:'film',o:6*D+2*H,glyph:'◐',label:'Rated on Letterboxd',text:'Past Lives (2023)',aside:'★★★★★',av:poster(30)},
+    {cat:'posts',o:7*D+3*H,glyph:'✱',label:'Bluesky',replyTo:'@jun.dev',text:"yes but have you tried just using the platform. (i'm sorry. i'll leave.)",aside:'♡ 19',av:av('Jun Park',250)},
+  ].forEach(x=>items.push({...x,pri:'med',ts:t(x.o)}));
+  const counts=[14,9,6,11,4,8,5,7,3,6]; let si=0;
+  counts.forEach((n,d)=>{for(let k=0;k<n;k++){const s=SONGS[si%SONGS.length],h=(si*47)%360;si++;
+    items.push({pri:'low',cat:'music',ts:t(d*D+12*M+k*23*M),text:`${s[1]} — ${s[0]}`,tint:`oklch(0.78 0.12 ${h})`});}});
+  [[4*H,'Balatro','2h 14m'],[D+6*H,'Outer Wilds','1h 05m'],[3*D+5*H,'Balatro','48m'],[6*D+4*H,'Tetris Effect','1h 30m']]
+    .forEach(([o,g,dur])=>items.push({pri:'low',cat:'games',ts:t(o),game:g,dur,text:`Played ${g} · ${dur}`,tint:'oklch(0.2 0.012 95)'}));
+  [[6*H+30*M,'Pushed 3 commits to tomsherman/site'],[2*D+H,'Opened PR #212 on open-ui/open-ui'],[5*D+7*H,'Starred lit/lit']]
+    .forEach(([o,x])=>items.push({pri:'low',cat:'code',ts:t(o),text:x,tint:'oklch(0.6 0.012 95)'}));
+  [[28*H,'Watched Severance — S2E4'],[4*D+9*H,'Watched Taskmaster — S18E2']]
+    .forEach(([o,x])=>items.push({pri:'low',cat:'film',ts:t(o),text:x,tint:'oklch(0.75 0.1 200)'}));
+  return items.sort((a,b)=>b.ts-a.ts);
+}
+
+class Component extends DCLogic {
+  state={filter:'all',open:{},nowIdx:0,tick:Date.now()};
+  constructor(p){super(p);this.base=Date.now();this.items=build(this.base);}
+  componentDidMount(){this.iv=setInterval(()=>this.setState({tick:Date.now()}),1000);
+    this.onR=()=>this.setState({wide:window.innerWidth>=960,narrow:window.innerWidth<640});this.onR();window.addEventListener('resize',this.onR);}
+  componentWillUnmount(){clearInterval(this.iv);window.removeEventListener('resize',this.onR);}
+  fmt(ts){
+    const d=this.state.tick-ts,f=this.props.timeFormat??'relative',p=n=>String(n).padStart(2,'0');
+    if(f==='absolute'){const x=new Date(ts);return `${p(x.getHours())}:${p(x.getMinutes())}`;}
+    if(f==='tminus')return d<D?`T−${p(Math.floor(d/H))}:${p(Math.floor(d%H/M))}`:`T−${Math.floor(d/D)}d${p(Math.floor(d%D/H))}h`;
+    return d<H?`${Math.max(1,Math.floor(d/M))}m ago`:d<D?`${Math.floor(d/H)}h ago`:`${Math.floor(d/D)}d ago`;
+  }
+  dayLabel(key){
+    const today=new Date(this.state.tick);today.setHours(0,0,0,0);
+    const x=new Date(key),diff=Math.round((today-x)/D);
+    const wd=x.toLocaleDateString('en-GB',{weekday:'short'});
+    return diff===0?'Today':diff===1?'Yesterday':`${wd}, ${diff} days ago`;
+  }
+  renderVals(){
+    const {filter,open,nowIdx,tick}=this.state;
+    const all=this.items, vis=filter==='all'?all:all.filter(i=>i.cat===filter);
+    const dayMap=new Map();
+    vis.forEach(i=>{const d=new Date(i.ts);d.setHours(0,0,0,0);const k=d.getTime();if(!dayMap.has(k))dayMap.set(k,[]);dayMap.get(k).push(i);});
+    const days=[...dayMap.entries()].map(([k,list])=>{
+      const entries=[];
+      list.filter(i=>i.pri!=='low').forEach(i=>{
+        const e={...i,time:this.fmt(i.ts),abs:new Date(i.ts).toLocaleString('en-GB'),isHigh:i.pri==='high',isMed:i.pri==='med',isLow:false,pad:i.pri==='high'?'15px':'11px'};
+        if(i.pri==='high'){e.isBlog=i.type==='blog';e.isThread=i.type==='thread';e.isReview=i.type==='review';
+          if(i.type==='review')e.mediaBg=`repeating-linear-gradient(135deg,oklch(0.72 0.12 ${i.hue}) 0 1px,oklch(0.8 0.1 ${i.hue}) 1px 7px)`;}
+        entries.push(e);});
+      const lows=list.filter(i=>i.pri==='low');
+      if(lows.length){
+        const by=c=>lows.filter(i=>i.cat===c),parts=[];
+        const mu=by('music'),ga=by('games'),fi=by('film'),co=by('code');
+        if(mu.length)parts.push({glyph:'♫',text:`${mu.length} track${mu.length>1?'s':''}`});
+        ga.forEach(g=>parts.push({glyph:'▶',text:`${g.game} ${g.dur}`}));
+        if(fi.length)parts.push({glyph:'◐',text:`${fi.length} episode${fi.length>1?'s':''}`});
+        if(co.length)parts.push({glyph:'⌥',text:`${co.length} on GitHub`});
+        const isOpen=!!open[k];
+        entries.push({id:'low'+k,ts:lows[0].ts,time:this.fmt(lows[0].ts),abs:new Date(lows[0].ts).toLocaleString('en-GB'),isLow:true,isHigh:false,isMed:false,pad:'9px',parts,open:isOpen,
+          toggleLabel:isOpen?'collapse':`+${lows.length} more`,
+          toggle:()=>this.setState(s=>({open:{...s.open,[k]:!s.open[k]}})),
+          items:lows.map(i=>({time:this.fmt(i.ts),text:i.text,tint:i.tint}))});
+      }
+      entries.sort((a,b)=>b.ts-a.ts);
+      const x=new Date(k);
+      return {label:this.dayLabel(k),short:`${String(x.getDate()).padStart(2,'0')}.${String(x.getMonth()+1).padStart(2,'0')}`,count:`${list.length} thing${list.length>1?'s':''}`,entries};
+    });
+    const filters=CATS.map(([id,glyph,label])=>{const on=filter===id;return {glyph,label,count:id==='all'?all.length:all.filter(i=>i.cat===id).length,
+      bg:on?'oklch(0.2 0.012 95)':'transparent',fg:on?'oklch(0.97 0.006 95)':'oklch(0.2 0.012 95)',border:on?'oklch(0.2 0.012 95)':'oklch(0.85 0.01 95)',
+      pick:()=>this.setState({filter:id})};});
+    const highs=all.filter(i=>i.pri==='high');
+    const pinned=highs.slice(0,2).map(h=>({glyph:h.glyph,label:h.label,time:this.fmt(h.ts),title:h.rTitle||h.title,hasMedia:true,media:h.media||'poster',
+      mediaBg:h.type==='review'?`repeating-linear-gradient(135deg,oklch(0.72 0.12 ${h.hue}) 0 1px,oklch(0.8 0.1 ${h.hue}) 1px 7px)`:STRIPE}));
+    const moreHi=highs.slice(2).map(h=>({glyph:h.glyph,title:h.rTitle||h.title,time:this.fmt(h.ts)}));
+    const a=NOW[nowIdx%NOW.length],secs=Math.floor((tick-this.base)/1000)+a.start,p=n=>String(n).padStart(2,'0');
+    let elapsed,pct='0%';
+    if(a.dur){const e=secs%a.dur;elapsed=`${Math.floor(e/60)}:${p(e%60)}`+(this.state.narrow?'':` / ${Math.floor(a.dur/60)}:${p(a.dur%60)}`);pct=`${(e/a.dur*100).toFixed(1)}%`;}
+    else elapsed=`${Math.floor(secs/3600)}h ${p(Math.floor(secs%3600/60))}m`;
+    return {
+      now:{kind:a.kind,title:a.title,sub:a.sub,elapsed,pct,hasBar:!!a.dur&&!this.state.narrow,pos:`${nowIdx%NOW.length+1}/${NOW.length}`,art:`oklch(0.72 0.14 ${a.hue})`},
+      cycleNow:()=>this.setState(s=>({nowIdx:s.nowIdx+1})),
+      liveDot:React.createElement('span',{style:{width:6,height:6,borderRadius:'50%',background:'oklch(0.2 0.012 95)',animation:'pulse 1.4s ease-in-out infinite'}}),
+      updatedAgo:this.fmt(all[0].ts),
+      marginalia:this.props.marginalia??true,
+      showRail:this.props.showRail??true,
+      railPos:this.state.wide?'sticky':'static',
+      gut:this.state.narrow?'52px 20px minmax(0,1fr)':'68px 28px minmax(0,1fr)',
+      chipWrap:this.state.narrow?'nowrap':'wrap',
+      filters,days,pinned,moreHi,
+    };
+  }
+}
+</script>
+</body>
+</html>

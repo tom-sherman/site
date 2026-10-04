@@ -11,3 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Stylex Guide
 
 See [stylex-authoring-guide.md](./docs/stylex-authoring-guide.md)
+
+Prefer variant props for configuring the style of components, if you need to step outside of this for any reason (like if a variant is only used in a single place) accept a `style` prop with an appropriately typed `StyleXStyles` eg. `StyleXStyles<{ color: "red" | "blue" | "green" }>`.
+
+For small one-off styles, [`@stylexjs/atoms`](https://stylexjs.com/docs/api/javascript/atoms) can be used directly inside stylex.props without creating a separate stylex.create namespace.

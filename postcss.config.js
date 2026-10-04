@@ -12,6 +12,7 @@ module.exports = {
         "pages/**/*.{js,jsx,ts,tsx}",
         // other top-level folders:
         "components/**/*.{js,jsx,ts,tsx}",
+        "lib/**/*.{js,jsx,ts,tsx}",
       ],
       babelConfig: {
         babelrc: false,
