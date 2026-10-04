@@ -11,15 +11,3 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Stylex Guide
 
 See [stylex-authoring-guide.md](./docs/stylex-authoring-guide.md)
-
-# Vendored reference repos
-
-`repos/` contains upstream source trees vendored with `git subtree` as read-only reference material:
-
-- `repos/effect`: [Effect-TS/effect](https://github.com/Effect-TS/effect) (Effect v4)
-
-When working with these libraries:
-
-- Prefer examples and patterns froluding its tests and docs) overguesses or web search results.
-- Do not edit files under `repos/`
-- Do not import from `repos/`. Application code imports from the normal package dependencies (e.g. `effect`).
