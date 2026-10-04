@@ -1,4 +1,4 @@
-import babelConfig from "./babel.config.js";
+const babelConfig = require("./babel.config");
 
 module.exports = {
   plugins: {

@@ -1,7 +1,7 @@
-import path from "node:path";
+const path = require("path");
 const dev = process.env.NODE_ENV !== "production";
 
-const config = {
+module.exports = {
   presets: ["next/babel"],
   plugins: [
     [
@@ -18,4 +18,3 @@ const config = {
     ],
   ],
 };
-export default config;
