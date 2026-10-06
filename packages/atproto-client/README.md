@@ -2,7 +2,7 @@
 
 Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.dev/package/@atproto/lex).
 
-Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getRepo`, `fm.teal.feed.play`
+Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.feed.play`
 
 ## Usage
 
@@ -49,7 +49,7 @@ const repo = xrpc("https://pds.example", com.atproto.sync.getRepo, {
 const post = parse(app.bsky.feed.post, value);
 ```
 
-Requests go through the `HttpClient` in context, so they're traced, interruptible, and can be swapped out in tests; lex still does the encoding, response validation and error decoding. Failures are `XrpcError`s carrying the lexicon error name, HTTP status and lex's `retryable` verdict. Lex's own retry loop isn't used, so use `Effect.retry` instead.
+Requests go through the `HttpClient` in context, so they're traced, interruptible, and can be swapped out in tests; lex still does the encoding, response validation and error decoding. Failures are `XrpcError`s carrying the lexicon error name, HTTP status and lex's `retryable` verdict, plus `retryAt` (epoch ms) when the service sent `Retry-After` or `RateLimit-Reset`. Lex's own retry loop isn't used, so use `Effect.retry` instead.
 
 The package must be built before it can be imported. Turbo builds it automatically ahead of a dependent's `build` (via `^build`) and `check-types` (via `^check-types`, which depends on `build` here), but not ahead of `dev`, so run `pnpm build` here first on a fresh checkout.
 

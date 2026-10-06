@@ -8,7 +8,7 @@ import {
   WriteOpAction,
 } from "@atproto/repo";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, Layer, Stream } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { makeAtprotoRepoSource } from "../src/sources/atproto/AtprotoRepo.ts";
 import { collections } from "../src/sources/atproto/collections.ts";
@@ -70,11 +70,18 @@ const buildCar = async () => {
       ] satisfies Array<Omit<RecordCreateOp, "action">>
     ).map((write) => ({ action: WriteOpAction.Create, ...write })),
   );
-  return concatBytesAsync(getFullRepo(storage, repo.cid));
+  const car = await concatBytesAsync(getFullRepo(storage, repo.cid));
+  return { car, rev: repo.commit.rev, cid: repo.cid.toString() };
 };
 
-/** Serves a DID document and `getRepo` for `DID`. */
-const mockNetwork = (getRepo: () => Promise<Response>) =>
+interface Network {
+  getRepo: () => Promise<Response>;
+  getLatestCommit: () => Promise<Response>;
+  calls: Array<string>;
+}
+
+/** Serves a DID document plus the sync endpoints for `DID`, recording which were called. */
+const mockNetwork = (network: Network) =>
   Layer.succeed(
     HttpClient.HttpClient,
     HttpClient.make((request, url) =>
@@ -91,9 +98,12 @@ const mockNetwork = (getRepo: () => Promise<Response>) =>
             ],
           });
         }
-        if (url.href.startsWith(`${PDS}/xrpc/com.atproto.sync.getRepo?`)) {
-          assert.strictEqual(url.searchParams.get("did"), DID);
-          return getRepo();
+        for (const method of ["getRepo", "getLatestCommit"] as const) {
+          if (url.href.startsWith(`${PDS}/xrpc/com.atproto.sync.${method}?`)) {
+            assert.strictEqual(url.searchParams.get("did"), DID);
+            network.calls.push(method);
+            return network[method]();
+          }
         }
         return new Response(null, { status: 404 });
       }).pipe(
@@ -102,28 +112,50 @@ const mockNetwork = (getRepo: () => Promise<Response>) =>
     ),
   );
 
-const backfill = (since: number) =>
-  Effect.gen(function* () {
-    const source = yield* makeAtprotoRepoSource({ did: DID, collections });
-    return yield* Stream.runCollect(source.backfill(since));
+const serveCar = (car: Uint8Array) => async () =>
+  new Response(car, {
+    headers: { "content-type": "application/vnd.ipld.car" },
   });
+
+const network = (overrides: Partial<Network>): Network => ({
+  getRepo: async () => new Response(null, { status: 500 }),
+  getLatestCommit: async () => new Response(null, { status: 500 }),
+  calls: [],
+  ...overrides,
+});
+
+const snapshot = (options: { since: number; checkpoint?: string }) =>
+  Effect.gen(function* () {
+    const source = yield* makeAtprotoRepoSource({
+      did: DID,
+      collections,
+    });
+    return yield* source.snapshot({
+      since: options.since,
+      checkpoint: options.checkpoint,
+    });
+  });
+
+const sourceError = <A, E>(exit: Exit.Exit<A, E>) => {
+  const reason = Exit.isFailure(exit) ? exit.cause.reasons[0] : undefined;
+  return reason?._tag === "Fail" ? reason.error : undefined;
+};
 
 describe("AtprotoRepo", () => {
   it.effect("maps cached collections from a full repo export", () =>
     Effect.gen(function* () {
-      const car = yield* Effect.promise(buildCar);
-      const activities = yield* backfill(NOW - 30 * DAY).pipe(
-        Effect.provide(
-          mockNetwork(
-            async () =>
-              new Response(car, {
-                headers: { "content-type": "application/vnd.ipld.car" },
-              }),
-          ),
-        ),
+      const { car, rev } = yield* Effect.promise(buildCar);
+      const net = network({ getRepo: serveCar(car) });
+      const result = yield* snapshot({ since: NOW - 30 * DAY }).pipe(
+        Effect.provide(mockNetwork(net)),
       );
+      assert.strictEqual(result._tag, "Snapshot");
+      if (result._tag !== "Snapshot") return;
+      // No checkpoint yet, so straight to the full export.
+      assert.deepStrictEqual(net.calls, ["getRepo"]);
+      assert.strictEqual(result.checkpoint, rev);
 
-      const byId = new Map(activities.map((a) => [a.id, a]));
+      const byId = new Map(result.activities.map((a) => [a.id, a]));
       assert.deepStrictEqual([...byId.keys()].sort(), [
         `at://${DID}/app.bsky.feed.post/3mxafgjedwc2y`,
         `at://${DID}/fm.teal.feed.play/3mxafgjedwc2z`,
@@ -143,23 +175,54 @@ describe("AtprotoRepo", () => {
     }),
   );
 
+  it.effect("skips the export when the repo revision hasn't changed", () =>
+    Effect.gen(function* () {
+      const { car, rev, cid } = yield* Effect.promise(buildCar);
+      const net = network({
+        getRepo: serveCar(car),
+        getLatestCommit: async () => Response.json({ cid, rev }),
+      });
+      const result = yield* snapshot({ since: 0, checkpoint: rev }).pipe(
+        Effect.provide(mockNetwork(net)),
+      );
+      assert.strictEqual(result._tag, "Unchanged");
+      assert.deepStrictEqual(net.calls, ["getLatestCommit"]);
+    }),
+  );
+
+  it.effect("fetches the export when the revision moved on", () =>
+    Effect.gen(function* () {
+      const { car, rev, cid } = yield* Effect.promise(buildCar);
+      const net = network({
+        getRepo: serveCar(car),
+        getLatestCommit: async () => Response.json({ cid, rev }),
+      });
+      const result = yield* snapshot({
+        since: 0,
+        checkpoint: "3aaaaaaaaaaaa",
+      }).pipe(Effect.provide(mockNetwork(net)));
+      assert.strictEqual(result._tag, "Snapshot");
+      assert.deepStrictEqual(net.calls, ["getLatestCommit", "getRepo"]);
+    }),
+  );
+
   it.effect("surfaces XRPC errors from getRepo", () =>
     Effect.gen(function* () {
-      const exit = yield* backfill(0).pipe(
+      const exit = yield* snapshot({ since: 0 }).pipe(
         Effect.provide(
-          mockNetwork(async () =>
-            Response.json(
-              { error: "RepoNotFound", message: "Could not find repo" },
-              { status: 400 },
-            ),
+          mockNetwork(
+            network({
+              getRepo: async () =>
+                Response.json(
+                  { error: "RepoNotFound", message: "Could not find repo" },
+                  { status: 400 },
+                ),
+            }),
           ),
         ),
         Effect.exit,
       );
-      assert.isTrue(Exit.isFailure(exit));
-      const error = Exit.isFailure(exit) ? exit.cause.reasons[0] : undefined;
-      assert.strictEqual(error?._tag, "Fail");
-      const failure = error?._tag === "Fail" ? error.error : undefined;
+      const failure = sourceError(exit);
       assert.strictEqual(failure?._tag, "SourceError");
       assert.deepInclude(failure?.cause as object, {
         _tag: "XrpcError",
@@ -168,6 +231,38 @@ describe("AtprotoRepo", () => {
         status: 400,
         retryable: false,
       });
+    }),
+  );
+
+  it.effect("passes a rate limit's reset time on, without retrying", () =>
+    Effect.gen(function* () {
+      const resetAt = Math.floor(Date.now() / 1000) + 600;
+      const net = network({
+        getLatestCommit: async () =>
+          Response.json(
+            { error: "RateLimitExceeded", message: "Rate Limit Exceeded" },
+            { status: 429, headers: { "ratelimit-reset": String(resetAt) } },
+          ),
+      });
+      const exit = yield* snapshot({
+        since: 0,
+        checkpoint: "3aaaaaaaaaaaa",
+      }).pipe(Effect.provide(mockNetwork(net)), Effect.exit);
+      assert.strictEqual(sourceError(exit)?.retryAt, resetAt * 1000);
+      assert.deepStrictEqual(net.calls, ["getLatestCommit"]);
+    }),
+  );
+
+  it.effect("fingerprints the DID and each collection's mapper version", () =>
+    Effect.gen(function* () {
+      const source = yield* makeAtprotoRepoSource({
+        did: DID,
+        collections,
+      }).pipe(Effect.provide(mockNetwork(network({}))));
+      assert.strictEqual(
+        source.fingerprint,
+        `did=${DID};collections=app.bsky.feed.post@1,fm.teal.feed.play@1`,
+      );
     }),
   );
 });

@@ -19,9 +19,21 @@ export const ActivityPage = Schema.Struct({
 });
 export type ActivityPage = typeof ActivityPage.Type;
 
+export const SourceStatus = Schema.Struct({
+  source: Schema.String,
+  /** The stored rows were built with the source's current fingerprint. */
+  upToDate: Schema.Boolean,
+  refreshing: Schema.Boolean,
+  /** Epoch ms of the last successful refresh. */
+  refreshedAt: Schema.NullOr(Schema.Int),
+  /** Epoch ms before which upstream won't be called (backoff / rate limit). */
+  nextAttemptAt: Schema.NullOr(Schema.Int),
+  /** Consecutive failed attempts. */
+  failures: Schema.Int,
+});
+
 export const CacheStatus = Schema.Struct({
-  live: Schema.NullOr(Schema.Int),
-  building: Schema.NullOr(Schema.Int),
+  sources: Schema.Array(SourceStatus),
 });
 
 /**
@@ -50,7 +62,7 @@ export class ActivityApi extends HttpApi.make("activity-cache")
             type: Schema.optional(Schema.ArrayEnsure(Schema.String)),
           },
           success: ActivityPage,
-          error: [HttpApiError.BadRequest, HttpApiError.ServiceUnavailable],
+          error: HttpApiError.BadRequest,
         }),
       )
       .middleware(Authorization),

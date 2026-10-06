@@ -29,13 +29,7 @@ export const ActivityApiHandlers = HttpApiBuilder.group(
         if (query.before !== undefined && before === undefined) {
           return yield* new HttpApiError.BadRequest();
         }
-        const items = yield* cache
-          .query({ limit, before, types: query.type })
-          .pipe(
-            Effect.catchTag("CacheNotReady", () =>
-              Effect.fail(new HttpApiError.ServiceUnavailable()),
-            ),
-          );
+        const items = yield* cache.query({ limit, before, types: query.type });
         const last = items.at(-1);
         return {
           items,
@@ -54,9 +48,15 @@ export const SystemApiHandlers = HttpApiBuilder.group(
     return handlers.handleAll({
       status: () =>
         cache.status.pipe(
-          Effect.map(({ live, building }) => ({
-            live: live ?? null,
-            building: building ?? null,
+          Effect.map((sources) => ({
+            sources: sources.map((s) => ({
+              source: s.source,
+              upToDate: s.upToDate,
+              refreshing: s.refreshing,
+              refreshedAt: s.refreshedAt,
+              nextAttemptAt: s.nextAttemptAt > 0 ? s.nextAttemptAt : null,
+              failures: s.failures,
+            })),
           })),
         ),
     });

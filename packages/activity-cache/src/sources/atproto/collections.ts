@@ -17,6 +17,8 @@ import { tidTimestamp } from "./tid.ts";
  */
 export interface CollectionHandler {
   readonly collection: string;
+  /** Bump when `toActivity`'s output changes, so stored rows get rebuilt. */
+  readonly version: number;
   /** `undefined` means the record isn't activity (or doesn't parse) and is skipped. */
   readonly toActivity: (record: {
     readonly uri: string;
@@ -33,11 +35,14 @@ export const recordCollection = <S extends RecordSchema>(
   schema: Main<S>,
   options: {
     readonly timestamp: (record: InferOutput<S>) => string | undefined;
+    /** See `CollectionHandler.version`. */
+    readonly version?: number;
   },
 ): CollectionHandler => {
   const collection = getMain(schema).$type;
   return {
     collection,
+    version: options.version ?? 1,
     toActivity: ({ uri, rkey, value }) =>
       parse(schema, value).pipe(
         Effect.map((record): Activity | undefined => {
@@ -62,9 +67,10 @@ export const recordCollection = <S extends RecordSchema>(
 };
 
 /**
- * Everything cached from the atproto repo. Add a collection here (after
- * `pnpm lex:install`-ing it in atproto-client) and the next rebuild, which
- * runs on every boot, picks it up.
+ * Everything cached from the atproto repo. Adding or removing a collection
+ * (after `pnpm lex:install`-ing it in atproto-client), or bumping a
+ * `version`, changes the source's fingerprint, so its rows are rebuilt on
+ * the next boot.
  */
 export const collections: ReadonlyArray<CollectionHandler> = [
   recordCollection(app.bsky.feed.post, { timestamp: (r) => r.createdAt }),

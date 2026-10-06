@@ -1,166 +1,404 @@
 import { SqliteClient } from "@effect/sql-sqlite-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Stream } from "effect";
+import {
+  Context,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Scope,
+} from "effect";
 import { TestClock } from "effect/testing";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { afterEach } from "vitest";
 import { type Activity, Mutation, RETENTION_MS } from "../src/Activity.ts";
 import { ActivityCache } from "../src/ActivityCache.ts";
-import { SourceError, Sources } from "../src/Source.ts";
+import {
+  type SnapshotResult,
+  SnapshotResult as Result,
+  type Source,
+  SourceError,
+  Sources,
+} from "../src/Source.ts";
 import { Store } from "../src/Store.ts";
-
-/** A source whose next backfill result each test controls. */
-class FakeSource extends Context.Service<
-  FakeSource,
-  { next: Effect.Effect<ReadonlyArray<Activity>, SourceError> }
->()("test/FakeSource") {}
-
-const TestLayer = ActivityCache.layer.pipe(
-  Layer.provideMerge(Store.layer),
-  Layer.provide(
-    Layer.effect(
-      Sources,
-      Effect.map(FakeSource, (fake) => [
-        {
-          name: "fake",
-          backfill: () =>
-            Stream.fromIterableEffect(Effect.suspend(() => fake.next)),
-        },
-      ]),
-    ),
-  ),
-  Layer.provideMerge(
-    Layer.sync(FakeSource, () => ({ next: Effect.succeed([]) })),
-  ),
-  Layer.provide(SqliteClient.layer({ filename: ":memory:" })),
-);
 
 const activity = (
   id: string,
-  timestamp: number,
+  timestamp = 1000,
   data: string = id,
-): Activity => ({
-  id,
-  timestamp,
-  type: "test",
-  data,
+): Activity => ({ id, timestamp, type: "test", data });
+
+/** A source whose responses each test controls, recording every call. */
+const fakeSource = (name: string) => {
+  const fake = {
+    fingerprint: "v1",
+    calls: [] as Array<{ since: number; checkpoint: string | undefined }>,
+    respond: (_: {
+      since: number;
+      checkpoint: string | undefined;
+    }): Effect.Effect<SnapshotResult, SourceError> =>
+      Effect.succeed(Result.snapshot([], undefined)),
+  };
+  const source: Source = {
+    name,
+    get fingerprint() {
+      return fake.fingerprint;
+    },
+    refreshInterval: Duration.minutes(5),
+    snapshot: (options) =>
+      Effect.suspend(() => {
+        fake.calls.push(options);
+        return fake.respond(options);
+      }),
+  };
+  return Object.assign(fake, { source });
+};
+type Fake = ReturnType<typeof fakeSource>;
+
+const failure = (retryAt?: number) =>
+  new SourceError({ source: "fake", message: "boom", retryAt, cause: null });
+
+let dirs: Array<string> = [];
+afterEach(() => {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  dirs = [];
+});
+const tempDb = () => {
+  const dir = mkdtempSync(join(tmpdir(), "activity-cache-"));
+  dirs.push(dir);
+  return join(dir, "cache.db");
+};
+
+/** Boots the cache against `filename`; `stop` ends the "process". */
+const boot = (filename: string, fakes: ReadonlyArray<Fake>) =>
+  Effect.gen(function* () {
+    const scope = yield* Scope.make();
+    const context = yield* Layer.buildWithScope(
+      ActivityCache.layer.pipe(
+        Layer.provide(Store.layer),
+        Layer.provide(
+          Layer.succeed(
+            Sources,
+            fakes.map((f) => f.source),
+          ),
+        ),
+        Layer.provide(SqliteClient.layer({ filename })),
+      ),
+      scope,
+    );
+    return {
+      cache: Context.get(context, ActivityCache),
+      scope,
+      stop: Scope.close(scope, Exit.void),
+    };
+  });
+
+/** Lets forked fibers run until they're all waiting again. */
+const settle = Effect.gen(function* () {
+  for (let i = 0; i < 50; i++) yield* Effect.yieldNow;
 });
 
-const contents = ActivityCache.use((cache) => cache.query({ limit: 100 })).pipe(
-  Effect.map((items) => items.map((a) => `${a.id}=${a.data}`).sort()),
-);
+/** Boots and starts the scheduler, like `main.ts` does. */
+const start = (filename: string, fakes: ReadonlyArray<Fake>) =>
+  Effect.gen(function* () {
+    const process = yield* boot(filename, fakes);
+    yield* Effect.forkIn(process.cache.run, process.scope);
+    yield* settle;
+    return process;
+  });
+
+const advance = (duration: Duration.Input) =>
+  TestClock.adjust(duration).pipe(Effect.andThen(settle));
+
+const contents = (cache: ActivityCache["Service"]) =>
+  cache
+    .query({ limit: 100 })
+    .pipe(Effect.map((items) => items.map((a) => `${a.id}=${a.data}`).sort()));
 
 describe("ActivityCache", () => {
-  it.effect("isn't ready until the first rebuild finishes", () =>
+  it.effect("replaces only the refreshed source's rows", () =>
     Effect.gen(function* () {
-      const cache = yield* ActivityCache;
-      const exit = yield* Effect.exit(cache.query({ limit: 10 }));
-      assert.isTrue(Exit.hasFails(exit));
+      const a = fakeSource("a");
+      const b = fakeSource("b");
+      a.respond = () =>
+        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
+      b.respond = () =>
+        Effect.succeed(Result.snapshot([activity("b1")], "b@1"));
+      const { cache, stop } = yield* boot(tempDb(), [a, b]);
+      yield* cache.refresh("a");
+      yield* cache.refresh("b");
+      assert.deepStrictEqual(yield* contents(cache), ["a1=a1", "b1=b1"]);
 
-      yield* cache.rebuild;
-      assert.deepStrictEqual(yield* contents, []);
-    }).pipe(Effect.provide(TestLayer)),
+      a.respond = () =>
+        Effect.succeed(Result.snapshot([activity("a2")], "a@2"));
+      yield* cache.refresh("a");
+      assert.deepStrictEqual(yield* contents(cache), ["a2=a2", "b1=b1"]);
+      assert.strictEqual(a.calls[1]!.checkpoint, "a@1");
+      yield* stop;
+    }),
   );
 
-  it.effect("pages newest first", () =>
+  it.effect("keeps rows and marks the source fresh when nothing changed", () =>
     Effect.gen(function* () {
-      const cache = yield* ActivityCache;
-      const fake = yield* FakeSource;
-      fake.next = Effect.succeed([
-        activity("a", 1),
-        activity("b", 3),
-        activity("c", 2),
-        activity("d", 2),
-      ]);
-      yield* cache.rebuild;
+      const a = fakeSource("a");
+      a.respond = () =>
+        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
+      const { cache, stop } = yield* boot(tempDb(), [a]);
+      yield* cache.refresh("a");
 
-      const first = yield* cache.query({ limit: 2 });
-      assert.deepStrictEqual(
-        first.map((a) => a.id),
-        ["b", "d"],
-      );
-      const second = yield* cache.query({ limit: 2, before: first[1] });
-      assert.deepStrictEqual(
-        second.map((a) => a.id),
-        ["c", "a"],
-      );
-    }).pipe(Effect.provide(TestLayer)),
+      a.respond = () => Effect.succeed(Result.unchanged);
+      yield* TestClock.adjust("1 minute");
+      yield* cache.refresh("a");
+      assert.deepStrictEqual(yield* contents(cache), ["a1=a1"]);
+      const [status] = yield* cache.status;
+      assert.strictEqual(status!.refreshedAt, 60_000);
+      yield* stop;
+    }),
   );
 
   it.effect(
-    "keeps serving and accepting realtime writes while rebuilding",
+    "keeps serving and accepting realtime writes while refreshing",
     () =>
       Effect.gen(function* () {
-        const cache = yield* ActivityCache;
-        const fake = yield* FakeSource;
-        fake.next = Effect.succeed([
-          activity("a", 1, "v1"),
-          activity("old", 1),
-        ]);
-        yield* cache.rebuild;
+        const a = fakeSource("a");
+        a.respond = () =>
+          Effect.succeed(
+            Result.snapshot([activity("x", 1, "v1"), activity("old")], "1"),
+          );
+        const { cache, stop } = yield* boot(tempDb(), [a]);
+        yield* cache.refresh("a");
 
         const started = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
         // The snapshot predates the realtime writes below: it still has the old
-        // version of `a` and the soon-to-be-deleted `b`, and doesn't have `c`.
-        fake.next = Deferred.succeed(started, undefined).pipe(
-          Effect.andThen(Deferred.await(release)),
-          Effect.as([activity("a", 1, "v1"), activity("b", 2)]),
-        );
-        const rebuilding = yield* Effect.forkChild(cache.rebuild);
+        // version of `x` and the soon-to-be-deleted `y`, and doesn't have `z`.
+        a.respond = () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Deferred.await(release)),
+            Effect.as(
+              Result.snapshot([activity("x", 1, "v1"), activity("y")], "2"),
+            ),
+          );
+        const refreshing = yield* Effect.forkChild(cache.refresh("a"));
         yield* Deferred.await(started);
 
-        yield* cache.apply([
-          Mutation.upsert(activity("a", 1, "v2")),
-          Mutation.upsert(activity("b", 2)),
-          Mutation.delete("b"),
-          Mutation.upsert(activity("c", 3)),
+        yield* cache.apply("a", [
+          Mutation.upsert(activity("x", 1, "v2")),
+          Mutation.upsert(activity("y")),
+          Mutation.delete("y"),
+          Mutation.upsert(activity("z")),
         ]);
-        // Still reading the previous generation, with the realtime writes applied.
-        assert.deepStrictEqual(yield* contents, ["a=v2", "c=c", "old=old"]);
+        // Still the previous rows, with the realtime writes applied.
+        assert.deepStrictEqual(yield* contents(cache), [
+          "old=old",
+          "x=v2",
+          "z=z",
+        ]);
+        assert.isTrue((yield* cache.status)[0]!.refreshing);
 
         yield* Deferred.succeed(release, undefined);
-        yield* Fiber.join(rebuilding);
-
-        // New generation: `old` is gone (not in the snapshot), realtime writes win.
-        assert.deepStrictEqual(yield* contents, ["a=v2", "c=c"]);
-        const status = yield* cache.status;
-        assert.strictEqual(status.building, undefined);
-      }).pipe(Effect.provide(TestLayer)),
+        yield* Fiber.join(refreshing);
+        // The snapshot replaced the rows (`old` is gone) and realtime writes won.
+        assert.deepStrictEqual(yield* contents(cache), ["x=v2", "z=z"]);
+        assert.isFalse((yield* cache.status)[0]!.refreshing);
+        yield* stop;
+      }),
   );
 
-  it.effect("keeps the live generation when a rebuild fails", () =>
+  it.effect("keeps a source's rows when its refresh fails", () =>
     Effect.gen(function* () {
-      const cache = yield* ActivityCache;
-      const fake = yield* FakeSource;
-      fake.next = Effect.succeed([activity("a", 1)]);
-      yield* cache.rebuild;
-      const before = yield* cache.status;
+      const a = fakeSource("a");
+      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
+      const { cache, stop } = yield* boot(tempDb(), [a]);
+      yield* cache.refresh("a");
 
-      fake.next = Effect.fail(
-        new SourceError({ source: "fake", message: "boom", cause: null }),
-      );
-      const exit = yield* Effect.exit(cache.rebuild);
+      a.respond = () => Effect.fail(failure());
+      const exit = yield* Effect.exit(cache.refresh("a"));
       assert.isTrue(Exit.hasFails(exit));
-
-      assert.deepStrictEqual(yield* cache.status, before);
-      assert.deepStrictEqual(yield* contents, ["a=a"]);
-
-      // The abandoned generation's table is gone and rebuilds still work.
-      fake.next = Effect.succeed([activity("b", 1)]);
-      yield* cache.rebuild;
-      assert.deepStrictEqual(yield* contents, ["b=b"]);
-    }).pipe(Effect.provide(TestLayer)),
+      assert.deepStrictEqual(yield* contents(cache), ["a1=a1"]);
+      const [status] = yield* cache.status;
+      assert.strictEqual(status!.failures, 1);
+      assert.strictEqual(status!.nextAttemptAt, 30_000);
+      yield* stop;
+    }),
   );
 
   it.effect("prunes activity older than the retention window", () =>
     Effect.gen(function* () {
-      const cache = yield* ActivityCache;
-      const fake = yield* FakeSource;
-      fake.next = Effect.succeed([activity("old", 0), activity("new", 1000)]);
-      yield* cache.rebuild;
+      const a = fakeSource("a");
+      a.respond = () =>
+        Effect.succeed(
+          Result.snapshot([activity("old", 0), activity("new", 1000)], "1"),
+        );
+      const { cache, stop } = yield* boot(tempDb(), [a]);
+      yield* cache.refresh("a");
 
       yield* TestClock.adjust(RETENTION_MS + 500);
       yield* cache.prune;
-      assert.deepStrictEqual(yield* contents, ["new=new"]);
-    }).pipe(Effect.provide(TestLayer)),
+      assert.deepStrictEqual(yield* contents(cache), ["new=new"]);
+      yield* stop;
+    }),
+  );
+});
+
+describe("ActivityCache across restarts", () => {
+  it.effect("doesn't refetch a fresh source on boot", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const a = fakeSource("a");
+      a.respond = () =>
+        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
+
+      const first = yield* start(db, [a]);
+      assert.strictEqual(a.calls.length, 1);
+      yield* advance("2 minutes");
+      yield* first.stop;
+
+      const second = yield* start(db, [a]);
+      assert.strictEqual(a.calls.length, 1);
+      assert.deepStrictEqual(yield* contents(second.cache), ["a1=a1"]);
+
+      // Due 5 minutes after the last refresh, not after the restart.
+      yield* advance("3 minutes");
+      assert.strictEqual(a.calls.length, 2);
+      assert.strictEqual(a.calls[1]!.checkpoint, "a@1");
+      yield* second.stop;
+    }),
+  );
+
+  it.effect(
+    "rebuilds a source whose fingerprint changed, serving old rows until then",
+    () =>
+      Effect.gen(function* () {
+        const db = tempDb();
+        const a = fakeSource("a");
+        a.respond = () =>
+          Effect.succeed(Result.snapshot([activity("v1-row")], "a@1"));
+        const first = yield* start(db, [a]);
+        yield* first.stop;
+
+        a.fingerprint = "v2";
+        const release = yield* Deferred.make<void>();
+        a.respond = () =>
+          Deferred.await(release).pipe(
+            Effect.as(Result.snapshot([activity("v2-row")], "a@2")),
+          );
+        const second = yield* start(db, [a]);
+        assert.strictEqual(a.calls.length, 2);
+        // A rebuild ignores the checkpoint, so the source can't answer "unchanged".
+        assert.strictEqual(a.calls[1]!.checkpoint, undefined);
+        assert.isFalse((yield* second.cache.status)[0]!.upToDate);
+        assert.deepStrictEqual(yield* contents(second.cache), [
+          "v1-row=v1-row",
+        ]);
+
+        yield* Deferred.succeed(release, undefined);
+        yield* settle;
+        assert.deepStrictEqual(yield* contents(second.cache), [
+          "v2-row=v2-row",
+        ]);
+        assert.isTrue((yield* second.cache.status)[0]!.upToDate);
+        yield* second.stop;
+      }),
+  );
+
+  it.effect(
+    "backs off across restarts instead of hammering upstream in a crash loop",
+    () =>
+      Effect.gen(function* () {
+        const db = tempDb();
+        const a = fakeSource("a");
+        // Every attempt hangs until the process "crashes".
+        a.respond = () => Effect.never;
+
+        // Seconds until each attempt is allowed: immediately, then 30s, 1m, 2m.
+        const waits = [0, 30, 60, 120];
+        for (const [i, wait] of waits.entries()) {
+          const process = yield* start(db, [a]);
+          if (wait > 0) {
+            // Restarting doesn't attempt again until the persisted backoff is up.
+            assert.strictEqual(a.calls.length, i, `restart ${i}`);
+            yield* advance(Duration.seconds(wait - 1));
+            assert.strictEqual(a.calls.length, i, `restart ${i}, ${wait - 1}s`);
+            yield* advance("1 second");
+          }
+          assert.strictEqual(a.calls.length, i + 1, `restart ${i}, ${wait}s`);
+          yield* process.stop;
+        }
+      }),
+  );
+
+  it.effect("honours upstream's retryAt across restarts", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const a = fakeSource("a");
+      a.respond = () => Effect.fail(failure(10 * 60_000));
+
+      const first = yield* start(db, [a]);
+      assert.strictEqual(a.calls.length, 1);
+      yield* first.stop;
+
+      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
+      const second = yield* start(db, [a]);
+      // Our own backoff would retry after 30s; upstream said 10 minutes.
+      yield* advance("9 minutes");
+      assert.strictEqual(a.calls.length, 1);
+      yield* advance("1 minute");
+      assert.strictEqual(a.calls.length, 2);
+      assert.deepStrictEqual(yield* contents(second.cache), ["a1=a1"]);
+      yield* second.stop;
+    }),
+  );
+
+  it.effect("drops rows of sources that are no longer configured", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const a = fakeSource("a");
+      const b = fakeSource("b");
+      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
+      b.respond = () => Effect.succeed(Result.snapshot([activity("b1")], "1"));
+      const first = yield* start(db, [a, b]);
+      assert.deepStrictEqual(yield* contents(first.cache), ["a1=a1", "b1=b1"]);
+      yield* first.stop;
+
+      const second = yield* boot(db, [a]);
+      assert.deepStrictEqual(yield* contents(second.cache), ["a1=a1"]);
+      assert.deepStrictEqual(
+        (yield* second.cache.status).map((s) => s.source),
+        ["a"],
+      );
+      yield* second.stop;
+    }),
+  );
+
+  it.effect("replaces a database with an older table layout", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const old = new DatabaseSync(db);
+      old.exec(`
+        CREATE TABLE generations (id INTEGER PRIMARY KEY, created_at INTEGER, active INTEGER);
+        CREATE TABLE activity_1 (id TEXT PRIMARY KEY, timestamp INTEGER, type TEXT, data TEXT);
+      `);
+      old.close();
+
+      const { cache, stop } = yield* boot(db, [fakeSource("a")]);
+      assert.deepStrictEqual(yield* contents(cache), []);
+      yield* stop;
+
+      const check = new DatabaseSync(db);
+      const tables = check
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
+        )
+        .all()
+        .map((r) => r.name);
+      check.close();
+      assert.deepStrictEqual(tables, ["activity", "source_state"]);
+    }),
   );
 });

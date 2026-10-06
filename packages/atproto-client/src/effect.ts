@@ -11,7 +11,7 @@ import {
   type XrpcOptions,
   type XrpcResponse,
 } from "@atproto/lex";
-import { Effect, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 import { HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
 /**
@@ -28,6 +28,8 @@ export class XrpcError extends Schema.TaggedError<XrpcError>()("XrpcError", {
   message: Schema.String,
   /** lex's own judgement of whether retrying could help (5xx, 429, network failures). */
   retryable: Schema.Boolean,
+  /** When the service asked us to come back (epoch ms), from `Retry-After` or `RateLimit-Reset`. */
+  retryAt: Schema.optional(Schema.Number),
   cause: Schema.Defect(),
 }) {}
 
@@ -73,12 +75,17 @@ export const xrpc = <const M extends Query | Procedure>(
       } as XrpcOptions<M>),
     );
     if (result.success) return result;
+    const now = yield* Clock.currentTimeMillis;
     return yield* new XrpcError({
       nsid: getMain(method).nsid,
       error: result.error,
       status: "status" in result ? result.status : undefined,
       message: result.message,
       retryable: result.shouldRetry(),
+      retryAt:
+        "headers" in result
+          ? retryAtFromHeaders(result.headers, now)
+          : undefined,
       cause: result,
     });
   }).pipe(
@@ -146,3 +153,20 @@ const makeFetch = Effect.gen(function* () {
 });
 
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/** Same headers, same precedence as lex's own retry logic. */
+const retryAtFromHeaders = (
+  headers: Headers,
+  now: number,
+): number | undefined => {
+  const retryAfter = headers.get("retry-after")?.trim();
+  if (retryAfter) {
+    const at = /^\d+$/.test(retryAfter)
+      ? now + Number(retryAfter) * 1000
+      : Date.parse(retryAfter);
+    if (at > now) return at;
+  }
+  const reset = Number(headers.get("ratelimit-reset"));
+  if (reset * 1000 > now) return reset * 1000;
+  return undefined;
+};

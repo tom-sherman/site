@@ -9,19 +9,18 @@ pnpm test
 
 Configuration comes from environment variables, then `.env` (gitignored, for local overrides and secrets). Under `pnpm dev`, the committed [`.env.development`](.env.development) fills in the rest: it points `OIDC_ISSUER` at the site's `next dev` server, so the service starts with no setup. `/activity` returns `503` until the site serves an OpenID provider.
 
-| env                | default                                 |
-| ------------------ | --------------------------------------- |
-| `PORT`             | `3001`                                  |
-| `DATABASE_PATH`    | `data/activity.db`                      |
-| `ATPROTO_DID`      | `did:plc:2xau7wbgdq4phuou2ypwuen7`      |
-| `REBUILD_INTERVAL` | `15 minutes`                            |
-| `OIDC_ISSUER`      | required (dev: `http://localhost:3000`) |
-| `OIDC_AUDIENCE`    | required (dev: `activity-cache`)        |
+| env             | default                                 |
+| --------------- | --------------------------------------- |
+| `PORT`          | `3001`                                  |
+| `DATABASE_PATH` | `data/activity.db`                      |
+| `ATPROTO_DID`   | `did:plc:2xau7wbgdq4phuou2ypwuen7`      |
+| `OIDC_ISSUER`   | required (dev: `http://localhost:3000`) |
+| `OIDC_AUDIENCE` | required (dev: `activity-cache`)        |
 
 ## API
 
 - `GET /activity?limit=50&before=<cursor>&type=<type>&type=…`: newest first, `{ items, cursor }`. `503` until the first build finishes.
-- `GET /status`: which generation is live and whether one is building. Unauthenticated, for health checks.
+- `GET /status`: per source, whether its rows match the current fingerprint, when it last refreshed, and any backoff. Unauthenticated, for health checks.
 
 `src/api.ts` is the `HttpApi` definition, so a typed client can be generated from it.
 
@@ -45,21 +44,35 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 ## Data
 
-One table per generation: `id` (at-uri for atproto), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON). `id` exists so realtime updates and deletes can find their row.
+Two tables:
 
-The data is disposable. Every rebuild starts from scratch:
+- `activity`: `source`, `id` (at-uri for atproto), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
+- `source_state`: one row per source with its fingerprint, last refresh, checkpoint and backoff. It's what lets a restart pick up where the last process left off.
 
-1. Create a new generation table. Reads and realtime writes keep going to the live one.
-2. Start buffering realtime mutations for the new generation, **before** asking any source for a snapshot.
-3. Write each source's backfill into the new table.
-4. Replay the buffer on top, mark the new generation active, and drop the old one.
+The data is disposable, but the store is durable: a restart serves what's there and doesn't call upstream until something is due.
 
-Every change ends up in the snapshot, the buffer, or both. Replaying upserts and deletes in order is idempotent, so being in both is fine. A failed or interrupted rebuild drops its table and leaves the live generation alone.
+### Refreshing
 
-Rebuilds run on boot and every `REBUILD_INTERVAL`, so data shape changes need no migrations or version bumps.
+Each source (`src/Source.ts`) refreshes independently, so one being down or rate limited doesn't hold up the others:
+
+- **Fingerprint.** Each source describes what it stores; for atproto that's the DID plus each collection and its mapper version. If it doesn't match the stored rows, the source is rebuilt on boot. Otherwise it refreshes every `refreshInterval`, counted from its last success, not from boot.
+- **Checkpoint.** A source can cheaply say nothing changed. For atproto it's the repo revision: a refresh costs one `getLatestCommit` call, and the export is only downloaded when the revision moved on.
+- **Backoff.** Every attempt is recorded before upstream is called: 30s, then doubling up to 1h. A process that crashes mid-refresh comes back to a backoff, not an immediate retry. If upstream says when to come back (`Retry-After` / `RateLimit-Reset`), that wins.
+
+A refresh swaps the source's rows in one transaction, so reads see the old rows until it commits:
+
+1. Start buffering the source's realtime mutations, **before** asking it for a snapshot. Realtime writes keep going to the table as well.
+2. Fetch the snapshot. Rows and other sources keep serving meanwhile.
+3. In one transaction: delete the source's rows, insert the snapshot, replay the buffer, update `source_state`.
+
+Every change ends up in the snapshot, the buffer, or both. Replaying upserts and deletes in order is idempotent, so being in both is fine. A failed or interrupted refresh leaves the rows alone.
+
+A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and lets sources refill.
 
 ## Adding a data type
 
-atproto collection: install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Other sources implement `Source` (`src/Source.ts`) and get added in `main.ts`.
+**atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-Realtime sources call `ActivityCache.apply` with mutations. For atproto, that's `CollectionHandler.toActivity`, the same mapping backfill uses.
+**Another source** (e.g. GitHub): implement `Source` with a `name`, a `fingerprint`, a `refreshInterval` and `snapshot({ since, checkpoint })`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
+
+Realtime sources call `ActivityCache.apply(source, mutations)`. For atproto that should go through `CollectionHandler.toActivity`, the same mapping snapshots use.

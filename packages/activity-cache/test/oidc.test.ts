@@ -439,10 +439,11 @@ describe("API authorization", () => {
             ActivityCache,
             ActivityCache.of({
               apply: () => Effect.void,
-              rebuild: Effect.void,
+              refresh: () => Effect.void,
+              run: Effect.never,
               query: () => Effect.succeed([]),
               prune: Effect.void,
-              status: Effect.succeed({ live: 1, building: undefined }),
+              status: Effect.succeed([]),
             }),
           ),
         ),
