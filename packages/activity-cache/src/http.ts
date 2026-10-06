@@ -76,7 +76,7 @@ export const AuthorizationLayer = Layer.effect(
                 Effect.andThen(Effect.fail(new HttpApiError.Unauthorized())),
               ),
             IssuerUnavailable: (error) =>
-              Effect.logWarning(error.message, error.cause).pipe(
+              Effect.logWarning(error.message).pipe(
                 Effect.andThen(
                   Effect.fail(new HttpApiError.ServiceUnavailable()),
                 ),

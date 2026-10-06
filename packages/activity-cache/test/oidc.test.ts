@@ -290,6 +290,11 @@ describe("OidcVerifier", () => {
         const token = yield* Effect.promise(() => sign(signingKey));
         const error = yield* verify(token).pipe(Effect.flip);
         assert.strictEqual(error._tag, "IssuerUnavailable");
+        // One line naming the failed request, not openid-client's generic wrapper.
+        assert.match(
+          error.message,
+          /^Couldn't fetch the issuer's JWKS for https:\/\/site\.example: Transport error \(GET https:\/\/site\.example\/jwks\)/,
+        );
       }).pipe(Effect.provide(verifierLayer(issuer)));
     },
   );

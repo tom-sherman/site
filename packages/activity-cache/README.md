@@ -7,12 +7,16 @@ pnpm dev     # http://localhost:3001
 pnpm test
 ```
 
-| env                | default                            |
-| ------------------ | ---------------------------------- |
-| `PORT`             | `3001`                             |
-| `DATABASE_PATH`    | `data/activity.db`                 |
-| `ATPROTO_DID`      | `did:plc:2xau7wbgdq4phuou2ypwuen7` |
-| `REBUILD_INTERVAL` | `15 minutes`                       |
+Configuration comes from environment variables, then `.env` (gitignored, for local overrides and secrets). Under `pnpm dev`, the committed [`.env.development`](.env.development) fills in the rest: it points `OIDC_ISSUER` at the site's `next dev` server, so the service starts with no setup. `/activity` returns `503` until the site serves an OpenID provider.
+
+| env                | default                                 |
+| ------------------ | --------------------------------------- |
+| `PORT`             | `3001`                                  |
+| `DATABASE_PATH`    | `data/activity.db`                      |
+| `ATPROTO_DID`      | `did:plc:2xau7wbgdq4phuou2ypwuen7`      |
+| `REBUILD_INTERVAL` | `15 minutes`                            |
+| `OIDC_ISSUER`      | required (dev: `http://localhost:3000`) |
+| `OIDC_AUDIENCE`    | required (dev: `activity-cache`)        |
 
 ## API
 

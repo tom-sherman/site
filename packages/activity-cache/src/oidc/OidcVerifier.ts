@@ -85,7 +85,11 @@ export class OidcVerifier extends Context.Service<
     const retryAfter = options.retryAfter ?? Duration.seconds(5);
 
     const unavailable = (message: string) => (cause: unknown) =>
-      new IssuerUnavailable({ issuer: options.issuer, message, cause });
+      new IssuerUnavailable({
+        issuer: options.issuer,
+        message: `${message} for ${options.issuer}: ${describeCause(cause)}`,
+        cause,
+      });
 
     const fetchMetadata = Effect.tryPromise({
       try: () =>
@@ -115,8 +119,7 @@ export class OidcVerifier extends Context.Service<
           Effect.catch((error) =>
             lastGood
               ? Effect.logWarning(
-                  "Discovery refresh failed, using previous metadata",
-                  error.cause,
+                  `${error.message}; using previous metadata`,
                 ).pipe(Effect.as({ metadata: lastGood, stale: true }))
               : Effect.fail(error),
           ),
@@ -205,6 +208,24 @@ const isNetworkFailure = (error: unknown): boolean =>
   (error instanceof Error &&
     error.cause !== undefined &&
     isNetworkFailure(error.cause));
+
+/**
+ * One line saying what went wrong. Transport failures are wrapped several
+ * times ("something went wrong" > "Transport error (GET …)" > "fetch failed"
+ * > "connect ECONNREFUSED …"), so for those use the request and the root cause.
+ */
+const describeCause = (cause: unknown): string => {
+  const chain: Array<unknown> = [];
+  for (let c = cause; c !== undefined; c = (c as { cause?: unknown }).cause) {
+    chain.push(c);
+  }
+  const request = chain.find(HttpClientError.isHttpClientError);
+  const root = chain.at(-1);
+  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  return request && root !== request
+    ? `${request.message}: ${message(root)}`
+    : message(cause);
+};
 
 /**
  * The JWKS couldn't be fetched: a network failure, or a non-200 / non-JSON

@@ -6,6 +6,7 @@ import { mkdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname } from "node:path";
 import { ActivityCache } from "./ActivityCache.ts";
+import { ConfigLayer, required } from "./config.ts";
 import { HttpLayer } from "./http.ts";
 import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import { Sources } from "./Source.ts";
@@ -67,8 +68,8 @@ const OidcLayer = Layer.unwrap(
   Effect.gen(function* () {
     // A string, not Config.URL: issuers are compared exactly, and URL parsing
     // would add a trailing slash to a bare origin.
-    const issuer = yield* Config.String("OIDC_ISSUER");
-    const audience = yield* Config.String("OIDC_AUDIENCE");
+    const issuer = yield* required("OIDC_ISSUER");
+    const audience = yield* required("OIDC_AUDIENCE");
     return OidcVerifier.layer({ issuer, audience });
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
@@ -84,6 +85,7 @@ const ServerLayer = HttpRouter.serve(HttpLayer).pipe(
 
 Layer.mergeAll(ServerLayer, Maintenance).pipe(
   Layer.provide(CacheLayer),
+  Layer.provide(ConfigLayer),
   Layer.launch,
   NodeRuntime.runMain,
 );

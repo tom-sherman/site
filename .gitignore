@@ -49,3 +49,4 @@ packages/atproto-client/src/**/*.js
 
 # activity-cache sqlite database
 packages/activity-cache/data
+!packages/activity-cache/.env.development
