@@ -1,7 +1,8 @@
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
 import { ActivityCache } from "./ActivityCache.ts";
-import { ActivityApi } from "./api.ts";
+import { ActivityApi, Authorization } from "./api.ts";
+import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import type { PageCursor } from "./Store.ts";
 
 const DEFAULT_LIMIT = 50;
@@ -41,6 +42,16 @@ export const ActivityApiHandlers = HttpApiBuilder.group(
           cursor: items.length === limit && last ? encodeCursor(last) : null,
         };
       }),
+    });
+  }),
+);
+
+export const SystemApiHandlers = HttpApiBuilder.group(
+  ActivityApi,
+  "system",
+  Effect.fn(function* (handlers) {
+    const cache = yield* ActivityCache;
+    return handlers.handleAll({
       status: () =>
         cache.status.pipe(
           Effect.map(({ live, building }) => ({
@@ -52,6 +63,34 @@ export const ActivityApiHandlers = HttpApiBuilder.group(
   }),
 );
 
+export const AuthorizationLayer = Layer.effect(
+  Authorization,
+  Effect.gen(function* () {
+    const verifier = yield* OidcVerifier;
+    return Authorization.of({
+      bearer: (httpEffect, { credential }) =>
+        verifier.verify(credential).pipe(
+          Effect.catchTags({
+            InvalidAccessToken: (error) =>
+              Effect.logInfo("Rejected access token", error.message).pipe(
+                Effect.andThen(Effect.fail(new HttpApiError.Unauthorized())),
+              ),
+            IssuerUnavailable: (error) =>
+              Effect.logWarning(error.message, error.cause).pipe(
+                Effect.andThen(
+                  Effect.fail(new HttpApiError.ServiceUnavailable()),
+                ),
+              ),
+          }),
+          Effect.andThen(httpEffect),
+        ),
+    });
+  }),
+);
+
 export const HttpLayer = HttpApiBuilder.layer(ActivityApi).pipe(
-  Layer.provide(ActivityApiHandlers),
+  Layer.provide([
+    ActivityApiHandlers.pipe(Layer.provide(AuthorizationLayer)),
+    SystemApiHandlers,
+  ]),
 );

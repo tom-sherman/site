@@ -14,7 +14,9 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-node": "catalog:",
     "@repo/atproto-client": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "oauth4webapi": "^3.8.8",
+    "openid-client": "^6.8.8"
   },
   "devDependencies": {
     "@atproto/crypto": "^0.5.7",

@@ -7,6 +7,7 @@ import { createServer } from "node:http";
 import { dirname } from "node:path";
 import { ActivityCache } from "./ActivityCache.ts";
 import { HttpLayer } from "./http.ts";
+import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import { Sources } from "./Source.ts";
 import { makeAtprotoRepoSource } from "./sources/atproto/AtprotoRepo.ts";
 import { collections } from "./sources/atproto/collections.ts";
@@ -61,7 +62,19 @@ const Maintenance = Layer.effectDiscard(
   }),
 );
 
+/** Only the site's server may call the API, with a token from the site's OpenID provider. */
+const OidcLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    // A string, not Config.URL: issuers are compared exactly, and URL parsing
+    // would add a trailing slash to a bare origin.
+    const issuer = yield* Config.String("OIDC_ISSUER");
+    const audience = yield* Config.String("OIDC_AUDIENCE");
+    return OidcVerifier.layer({ issuer, audience });
+  }),
+).pipe(Layer.provide(FetchHttpClient.layer));
+
 const ServerLayer = HttpRouter.serve(HttpLayer).pipe(
+  Layer.provide(OidcLayer),
   Layer.provide(
     NodeHttpServer.layerConfig(createServer, {
       port: Config.Port("PORT").pipe(Config.withDefault(3001)),
