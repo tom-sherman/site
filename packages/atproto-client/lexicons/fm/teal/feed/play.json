@@ -1,0 +1,114 @@
+{
+  "id": "fm.teal.feed.play",
+  "defs": {
+    "main": {
+      "key": "tid",
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": [
+          "trackName"
+        ],
+        "properties": {
+          "isrc": {
+            "type": "string",
+            "description": "The ISRC code associated with the recording"
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "ref": "fm.teal.feed.defs#artist",
+              "type": "ref"
+            },
+            "description": "Array of artists in order of original appearance."
+          },
+          "duration": {
+            "type": "integer",
+            "description": "The length of the track in seconds"
+          },
+          "originUri": {
+            "type": "string",
+            "format": "uri",
+            "description": "The exact URI where the listening event originated."
+          },
+          "trackMbId": {
+            "type": "string",
+            "format": "uri",
+            "description": "The MusicBrainz ID URI of the track, formatted as mbid:<uuid>"
+          },
+          "trackName": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "description": "The name of the track",
+            "maxGraphemes": 2560
+          },
+          "playedTime": {
+            "type": "string",
+            "format": "datetime",
+            "description": "The datetime at which playback began."
+          },
+          "artistMbIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "DEPRECATED: USE 'artists' INSTEAD. Array of Musicbrainz artist IDs."
+          },
+          "artistNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 256,
+              "minLength": 1,
+              "maxGraphemes": 2560
+            },
+            "description": "DEPRECATED: USE 'artists' INSTEAD. Array of artist names in order of original appearance."
+          },
+          "releaseMbId": {
+            "type": "string",
+            "format": "uri",
+            "description": "The MusicBrainz release ID URI, formatted as mbid:<uuid>"
+          },
+          "releaseName": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "The name of the release/album",
+            "maxGraphemes": 2560
+          },
+          "recordingMbId": {
+            "type": "string",
+            "format": "uri",
+            "description": "The MusicBrainz recording ID URI of the track, formatted as mbid:<uuid>"
+          },
+          "musicServiceUri": {
+            "type": "string",
+            "format": "uri",
+            "description": "The canonical URI identifying the listening surface or music service."
+          },
+          "trackDiscriminant": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Distinguishing information for track variants (e.g. 'Acoustic Version', 'Live at Wembley', 'Radio Edit', 'Demo'). Used to differentiate between different versions of the same base track while maintaining grouping capabilities.",
+            "maxGraphemes": 1280
+          },
+          "releaseDiscriminant": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Distinguishing information for release variants (e.g. 'Deluxe Edition', 'Remastered', '2023 Remaster', 'Special Edition'). Used to differentiate between different versions of the same base release while maintaining grouping capabilities.",
+            "maxGraphemes": 1280
+          },
+          "submissionClientAgent": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "A metadata string specifying the user agent where the format is `<app-identifier>/<version> (<kernel/OS-base>; <platform/OS-version>; <device-model>)`. If string is provided, only `app-identifier` and `version` are required. `app-identifier` is recommended to be in reverse dns format. Defaults to 'manual/unknown' if unavailable or not provided.",
+            "maxGraphemes": 2560
+          }
+        }
+      }
+    }
+  },
+  "$type": "com.atproto.lexicon.schema",
+  "lexicon": 1,
+  "description": "This lexicon is in a not officially released state. It is subject to change. | A declaration of a teal.fm play. Plays are submitted as a result of a user listening to a track. Plays should be marked as tracked when a user has listened to the entire track if it's under 2 minutes long, or half of the track's duration up to 4 minutes, whichever is longest."
+}

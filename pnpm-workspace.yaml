@@ -8,4 +8,8 @@ allowBuilds:
 
 catalog:
   "@atproto/lex": ^0.3.14
+  "@effect/platform-node": ^4.0.1
+  "@effect/sql-sqlite-node": ^4.0.1
+  "@effect/vitest": ^4.0.1
+  effect: ^4.0.1
   typescript: ^7.0.0

@@ -6,6 +6,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.js"
+    },
+    "./effect": {
+      "types": "./src/effect.ts",
+      "default": "./src/effect.js"
     }
   },
   "scripts": {
@@ -15,9 +19,17 @@
   },
   "devDependencies": {
     "@atproto/lex": "catalog:",
+    "@types/node": "^24.19.1",
+    "effect": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependencies": {
-    "@atproto/lex": "catalog:"
+    "@atproto/lex": "catalog:",
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
   }
 }

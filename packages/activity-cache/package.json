@@ -1,0 +1,26 @@
+{
+  "name": "@repo/activity-cache",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/main.ts",
+    "start": "node --env-file-if-exists=.env src/main.ts",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@atproto/lex": "catalog:",
+    "@atproto/repo": "^0.11.0",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
+    "@repo/atproto-client": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@atproto/crypto": "^0.5.7",
+    "@effect/vitest": "catalog:",
+    "@types/node": "^24.19.1",
+    "typescript": "catalog:",
+    "vitest": "^5.0.3"
+  }
+}

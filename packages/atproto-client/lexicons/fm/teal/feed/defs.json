@@ -1,0 +1,102 @@
+{
+  "id": "fm.teal.feed.defs",
+  "defs": {
+    "artist": {
+      "type": "object",
+      "required": [
+        "artistName"
+      ],
+      "properties": {
+        "artistMbId": {
+          "type": "string",
+          "format": "uri",
+          "description": "The MusicBrainz artist ID URI, formatted as mbid:<uuid>"
+        },
+        "artistName": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1,
+          "description": "The name of the artist",
+          "maxGraphemes": 2560
+        }
+      }
+    },
+    "playView": {
+      "type": "object",
+      "required": [
+        "trackName",
+        "artists"
+      ],
+      "properties": {
+        "isrc": {
+          "type": "string",
+          "description": "The ISRC code associated with the recording"
+        },
+        "artists": {
+          "type": "array",
+          "items": {
+            "ref": "#artist",
+            "type": "ref"
+          },
+          "description": "Array of artists in order of original appearance."
+        },
+        "duration": {
+          "type": "integer",
+          "description": "The length of the track in seconds"
+        },
+        "originUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "The exact URI where the listening event originated."
+        },
+        "trackMbId": {
+          "type": "string",
+          "format": "uri",
+          "description": "The MusicBrainz ID URI of the track, formatted as mbid:<uuid>"
+        },
+        "trackName": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1,
+          "description": "The name of the track",
+          "maxGraphemes": 2560
+        },
+        "playedTime": {
+          "type": "string",
+          "format": "datetime",
+          "description": "The datetime at which playback began."
+        },
+        "releaseMbId": {
+          "type": "string",
+          "format": "uri",
+          "description": "The MusicBrainz release ID URI, formatted as mbid:<uuid>"
+        },
+        "releaseName": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "The name of the release/album",
+          "maxGraphemes": 2560
+        },
+        "recordingMbId": {
+          "type": "string",
+          "format": "uri",
+          "description": "The MusicBrainz recording ID URI of the track, formatted as mbid:<uuid>"
+        },
+        "musicServiceUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "The canonical URI identifying the listening surface or music service."
+        },
+        "submissionClientAgent": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "A user-agent style string specifying the user agent. e.g. tealtracker/0.0.1b (Linux; Android 13; SM-A715F). Defaults to 'manual/unknown' if not provided.",
+          "maxGraphemes": 2560
+        }
+      }
+    }
+  },
+  "$type": "com.atproto.lexicon.schema",
+  "lexicon": 1,
+  "description": "This lexicon is in a not officially released state. It is subject to change. | Misc. items related to feeds."
+}
