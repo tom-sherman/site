@@ -31,7 +31,7 @@ const fingerprintOf = (source: Source) =>
  *
  * Every source refreshes on its own schedule, persisted in SQLite so restarts
  * don't trigger refetches: a source is only rebuilt when its fingerprint
- * changes, refreshed every `refreshInterval` from its last success, and backed
+ * changes, refreshed when it last asked to be (`refreshAfter`), and backed
  * off after failures. Each attempt is recorded before upstream is called, so
  * a process that crashes mid-refresh comes back to a backoff rather than
  * hitting upstream again immediately.
@@ -135,12 +135,19 @@ export class ActivityCache extends Context.Service<
             }
 
             const refreshedAt = yield* Clock.currentTimeMillis;
+
+            const nextRefreshAt =
+              refreshedAt +
+              Duration.toMillis(Duration.fromInputUnsafe(result.refreshAfter));
             yield* lock.withPermit(
               Effect.gen(function* () {
                 const mutations = buffers.get(source.name) ?? [];
                 buffers.delete(source.name);
                 if (result._tag === "Unchanged") {
-                  yield* store.recordUnchanged(source.name, refreshedAt);
+                  yield* store.recordUnchanged(source.name, {
+                    refreshedAt,
+                    nextRefreshAt,
+                  });
                 } else {
                   yield* store.replaceSource(source.name, {
                     activities: result.activities,
@@ -148,6 +155,7 @@ export class ActivityCache extends Context.Service<
                     fingerprint,
                     checkpoint: result.checkpoint,
                     refreshedAt,
+                    nextRefreshAt,
                   });
                 }
               }),
@@ -175,8 +183,8 @@ export class ActivityCache extends Context.Service<
       const dueAt = (source: Source, state: SourceState, now: number) => {
         const scheduled =
           state.fingerprint === fingerprintOf(source) &&
-          state.refreshedAt !== null
-            ? state.refreshedAt + Duration.toMillis(source.refreshInterval)
+          state.nextRefreshAt !== null
+            ? state.nextRefreshAt
             : now;
         return Math.max(scheduled, state.nextAttemptAt);
       };

@@ -12,20 +12,35 @@ export class SourceError extends Schema.TaggedError<SourceError>()(
   },
 ) {}
 
+/**
+ * `refreshAfter` is when the source wants to be asked again. It's the
+ * source's call: a fixed interval for atproto, whatever `X-Poll-Interval`
+ * says for GitHub. The cache persists it, so restarts don't move it.
+ */
 export type SnapshotResult =
-  | { readonly _tag: "Unchanged" }
+  | { readonly _tag: "Unchanged"; readonly refreshAfter: Duration.Input }
   | {
       readonly _tag: "Snapshot";
       readonly activities: ReadonlyArray<Activity>;
       readonly checkpoint: string | undefined;
+      readonly refreshAfter: Duration.Input;
     };
 
 export const SnapshotResult = {
-  unchanged: { _tag: "Unchanged" } as SnapshotResult,
+  unchanged: (refreshAfter: Duration.Input): SnapshotResult => ({
+    _tag: "Unchanged",
+    refreshAfter,
+  }),
   snapshot: (
     activities: ReadonlyArray<Activity>,
     checkpoint: string | undefined,
-  ): SnapshotResult => ({ _tag: "Snapshot", activities, checkpoint }),
+    refreshAfter: Duration.Input,
+  ): SnapshotResult => ({
+    _tag: "Snapshot",
+    activities,
+    checkpoint,
+    refreshAfter,
+  }),
 };
 
 /**
@@ -41,8 +56,6 @@ export interface Source {
    * it maps it). When it changes, the source's rows are rebuilt from scratch.
    */
   readonly fingerprint: string;
-  /** How often to check for changes. */
-  readonly refreshInterval: Duration.Duration;
   /**
    * Everything since `since`. Given the checkpoint from the last snapshot,
    * a source can cheaply report `Unchanged` instead (a repo rev, an ETag, …).

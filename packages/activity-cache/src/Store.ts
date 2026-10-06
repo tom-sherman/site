@@ -21,6 +21,8 @@ export interface SourceState {
   readonly fingerprint: string | null;
   /** Last successful refresh (a snapshot or an "unchanged" check). */
   readonly refreshedAt: number | null;
+  /** When the source asked to be refreshed next (epoch ms); `null` if never refreshed. */
+  readonly nextRefreshAt: number | null;
   readonly checkpoint: string | null;
   /** No upstream calls before this (epoch ms). */
   readonly nextAttemptAt: number;
@@ -40,6 +42,7 @@ const StateRow = Schema.Struct({
   source: Schema.String,
   fingerprint: Schema.NullOr(Schema.String),
   refreshed_at: Schema.NullOr(Schema.Int),
+  next_refresh_at: Schema.NullOr(Schema.Int),
   checkpoint: Schema.NullOr(Schema.String),
   next_attempt_at: Schema.Int,
   failures: Schema.Int,
@@ -49,6 +52,7 @@ const toState = (row: typeof StateRow.Type): SourceState => ({
   source: row.source,
   fingerprint: row.fingerprint,
   refreshedAt: row.refreshed_at,
+  nextRefreshAt: row.next_refresh_at,
   checkpoint: row.checkpoint,
   nextAttemptAt: row.next_attempt_at,
   failures: row.failures,
@@ -58,7 +62,7 @@ const toState = (row: typeof StateRow.Type): SourceState => ({
  * Bump when the table layout changes. The data is disposable, so an older
  * layout is dropped and every source refills on its next refresh.
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const BATCH_SIZE = 500;
 
@@ -84,7 +88,7 @@ export class Store extends Context.Service<
     /** Upstream had nothing new: keep the rows, mark the source fresh. */
     readonly recordUnchanged: (
       source: string,
-      refreshedAt: number,
+      refresh: { readonly refreshedAt: number; readonly nextRefreshAt: number },
     ) => Effect.Effect<void>;
     /**
      * Atomically swaps a source's rows for a snapshot (plus realtime mutations
@@ -98,6 +102,7 @@ export class Store extends Context.Service<
         readonly fingerprint: string;
         readonly checkpoint: string | undefined;
         readonly refreshedAt: number;
+        readonly nextRefreshAt: number;
       },
     ) => Effect.Effect<void>;
     /** Removes rows and state for sources that are no longer configured. */
@@ -145,6 +150,7 @@ export class Store extends Context.Service<
             source TEXT PRIMARY KEY,
             fingerprint TEXT,
             refreshed_at INTEGER,
+            next_refresh_at INTEGER,
             checkpoint TEXT,
             next_attempt_at INTEGER NOT NULL DEFAULT 0,
             failures INTEGER NOT NULL DEFAULT 0
@@ -169,6 +175,7 @@ export class Store extends Context.Service<
                   source,
                   fingerprint: null,
                   refreshedAt: null,
+                  nextRefreshAt: null,
                   checkpoint: null,
                   nextAttemptAt: 0,
                   failures: 0,
@@ -196,10 +203,19 @@ export class Store extends Context.Service<
           WHERE source = ${source}
         `.pipe(Effect.asVoid, Effect.orDie);
 
-      const recordUnchanged = (source: string, refreshedAt: number) =>
+      const recordUnchanged = (
+        source: string,
+        refresh: {
+          readonly refreshedAt: number;
+          readonly nextRefreshAt: number;
+        },
+      ) =>
         sql`
           UPDATE source_state
-          SET refreshed_at = ${refreshedAt}, failures = 0, next_attempt_at = 0
+          SET refreshed_at = ${refresh.refreshedAt},
+            next_refresh_at = ${refresh.nextRefreshAt},
+            failures = 0,
+            next_attempt_at = 0
           WHERE source = ${source}
         `.pipe(Effect.asVoid, Effect.orDie);
 
@@ -274,6 +290,7 @@ export class Store extends Context.Service<
           readonly fingerprint: string;
           readonly checkpoint: string | undefined;
           readonly refreshedAt: number;
+          readonly nextRefreshAt: number;
         },
       ) =>
         Effect.gen(function* () {
@@ -282,14 +299,15 @@ export class Store extends Context.Service<
           yield* applyMutations(source, replacement.mutations);
           yield* sql`
             INSERT INTO source_state
-              (source, fingerprint, refreshed_at, checkpoint, next_attempt_at, failures)
+              (source, fingerprint, refreshed_at, next_refresh_at, checkpoint, next_attempt_at, failures)
             VALUES (
               ${source}, ${replacement.fingerprint}, ${replacement.refreshedAt},
-              ${replacement.checkpoint ?? null}, 0, 0
+              ${replacement.nextRefreshAt}, ${replacement.checkpoint ?? null}, 0, 0
             )
             ON CONFLICT (source) DO UPDATE SET
               fingerprint = excluded.fingerprint,
               refreshed_at = excluded.refreshed_at,
+              next_refresh_at = excluded.next_refresh_at,
               checkpoint = excluded.checkpoint,
               next_attempt_at = 0,
               failures = 0

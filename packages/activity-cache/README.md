@@ -55,7 +55,8 @@ The data is disposable, but the store is durable: a restart serves what's there 
 
 Each source (`src/Source.ts`) refreshes independently, so one being down or rate limited doesn't hold up the others:
 
-- **Fingerprint.** Each source describes what it stores; for atproto that's the DID plus each collection and its mapper version. If it doesn't match the stored rows, the source is rebuilt on boot. Otherwise it refreshes every `refreshInterval`, counted from its last success, not from boot.
+- **Fingerprint.** Each source describes what it stores; for atproto that's the DID plus each collection and its mapper version. If it doesn't match the stored rows, the source is rebuilt on boot.
+- **Refresh timing.** Each result says when to ask again (`refreshAfter`): a constant for atproto, GitHub's `X-Poll-Interval` for GitHub. The cache stores it as an absolute time, so a restart doesn't move it.
 - **Checkpoint.** A source can cheaply say nothing changed. For atproto it's the repo revision: a refresh costs one `getLatestCommit` call, and the export is only downloaded when the revision moved on.
 - **Backoff.** Every attempt is recorded before upstream is called: 30s, then doubling up to 1h. A process that crashes mid-refresh comes back to a backoff, not an immediate retry. If upstream says when to come back (`Retry-After` / `RateLimit-Reset`), that wins.
 
@@ -73,6 +74,6 @@ A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and 
 
 **atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-**Another source** (e.g. GitHub): implement `Source` with a `name`, a `fingerprint`, a `refreshInterval` and `snapshot({ since, checkpoint })`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
+**Another source** (e.g. GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
 
 Realtime sources call `ActivityCache.apply(source, mutations)`. For atproto that should go through `CollectionHandler.toActivity`, the same mapping snapshots use.

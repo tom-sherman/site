@@ -70,6 +70,7 @@ const readCollections = (repo: Repo, collections: ReadonlyArray<string>) =>
  * sees a newer revision than the last snapshot and downloads the whole repo.
  *
  * Deliberately not configurable: nothing about a deployment should change it.
+ * Returned as each snapshot's `refreshAfter`; the cache does the scheduling.
  */
 const REFRESH_INTERVAL = Duration.minutes(5);
 
@@ -100,7 +101,7 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
           checkpoint !== undefined &&
           (yield* latestRev(pds, did)) === checkpoint
         ) {
-          return SnapshotResult.unchanged;
+          return SnapshotResult.unchanged(REFRESH_INTERVAL);
         }
         const repo = yield* fetchRepo(pds, did);
         yield* Effect.logInfo("Fetched repo").pipe(
@@ -119,6 +120,7 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
             (a): a is Activity => a !== undefined && a.timestamp >= since,
           ),
           repo.commit.rev,
+          REFRESH_INTERVAL,
         );
       }).pipe(
         Effect.mapError(
@@ -143,7 +145,6 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
           .sort()
           .join(",")}`,
       ].join(";"),
-      refreshInterval: REFRESH_INTERVAL,
       snapshot,
     } satisfies Source;
   },

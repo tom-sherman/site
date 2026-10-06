@@ -33,6 +33,12 @@ const activity = (
   data: string = id,
 ): Activity => ({ id, timestamp, type: "test", data });
 
+/** A snapshot asking to be refreshed again in 5 minutes. */
+const snap = (
+  activities: ReadonlyArray<Activity>,
+  checkpoint: string | undefined,
+) => Result.snapshot(activities, checkpoint, "5 minutes");
+
 /** A source whose responses each test controls, recording every call. */
 const fakeSource = (name: string) => {
   const fake = {
@@ -42,14 +48,13 @@ const fakeSource = (name: string) => {
       since: number;
       checkpoint: string | undefined;
     }): Effect.Effect<SnapshotResult, SourceError> =>
-      Effect.succeed(Result.snapshot([], undefined)),
+      Effect.succeed(snap([], undefined)),
   };
   const source: Source = {
     name,
     get fingerprint() {
       return fake.fingerprint;
     },
-    refreshInterval: Duration.minutes(5),
     snapshot: (options) =>
       Effect.suspend(() => {
         fake.calls.push(options);
@@ -125,17 +130,14 @@ describe("ActivityCache", () => {
     Effect.gen(function* () {
       const a = fakeSource("a");
       const b = fakeSource("b");
-      a.respond = () =>
-        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
-      b.respond = () =>
-        Effect.succeed(Result.snapshot([activity("b1")], "b@1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "a@1"));
+      b.respond = () => Effect.succeed(snap([activity("b1")], "b@1"));
       const { cache, stop } = yield* boot(tempDb(), [a, b]);
       yield* cache.refresh("a");
       yield* cache.refresh("b");
       assert.deepStrictEqual(yield* contents(cache), ["a1=a1", "b1=b1"]);
 
-      a.respond = () =>
-        Effect.succeed(Result.snapshot([activity("a2")], "a@2"));
+      a.respond = () => Effect.succeed(snap([activity("a2")], "a@2"));
       yield* cache.refresh("a");
       assert.deepStrictEqual(yield* contents(cache), ["a2=a2", "b1=b1"]);
       assert.strictEqual(a.calls[1]!.checkpoint, "a@1");
@@ -146,12 +148,11 @@ describe("ActivityCache", () => {
   it.effect("keeps rows and marks the source fresh when nothing changed", () =>
     Effect.gen(function* () {
       const a = fakeSource("a");
-      a.respond = () =>
-        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "a@1"));
       const { cache, stop } = yield* boot(tempDb(), [a]);
       yield* cache.refresh("a");
 
-      a.respond = () => Effect.succeed(Result.unchanged);
+      a.respond = () => Effect.succeed(Result.unchanged("5 minutes"));
       yield* TestClock.adjust("1 minute");
       yield* cache.refresh("a");
       assert.deepStrictEqual(yield* contents(cache), ["a1=a1"]);
@@ -167,9 +168,7 @@ describe("ActivityCache", () => {
       Effect.gen(function* () {
         const a = fakeSource("a");
         a.respond = () =>
-          Effect.succeed(
-            Result.snapshot([activity("x", 1, "v1"), activity("old")], "1"),
-          );
+          Effect.succeed(snap([activity("x", 1, "v1"), activity("old")], "1"));
         const { cache, stop } = yield* boot(tempDb(), [a]);
         yield* cache.refresh("a");
 
@@ -180,9 +179,7 @@ describe("ActivityCache", () => {
         a.respond = () =>
           Deferred.succeed(started, undefined).pipe(
             Effect.andThen(Deferred.await(release)),
-            Effect.as(
-              Result.snapshot([activity("x", 1, "v1"), activity("y")], "2"),
-            ),
+            Effect.as(snap([activity("x", 1, "v1"), activity("y")], "2")),
           );
         const refreshing = yield* Effect.forkChild(cache.refresh("a"));
         yield* Deferred.await(started);
@@ -213,7 +210,7 @@ describe("ActivityCache", () => {
   it.effect("keeps a source's rows when its refresh fails", () =>
     Effect.gen(function* () {
       const a = fakeSource("a");
-      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "1"));
       const { cache, stop } = yield* boot(tempDb(), [a]);
       yield* cache.refresh("a");
 
@@ -232,9 +229,7 @@ describe("ActivityCache", () => {
     Effect.gen(function* () {
       const a = fakeSource("a");
       a.respond = () =>
-        Effect.succeed(
-          Result.snapshot([activity("old", 0), activity("new", 1000)], "1"),
-        );
+        Effect.succeed(snap([activity("old", 0), activity("new", 1000)], "1"));
       const { cache, stop } = yield* boot(tempDb(), [a]);
       yield* cache.refresh("a");
 
@@ -251,8 +246,7 @@ describe("ActivityCache across restarts", () => {
     Effect.gen(function* () {
       const db = tempDb();
       const a = fakeSource("a");
-      a.respond = () =>
-        Effect.succeed(Result.snapshot([activity("a1")], "a@1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "a@1"));
 
       const first = yield* start(db, [a]);
       assert.strictEqual(a.calls.length, 1);
@@ -271,14 +265,38 @@ describe("ActivityCache across restarts", () => {
     }),
   );
 
+  it.effect("refreshes when the source asked to, across restarts", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const a = fakeSource("a");
+      // e.g. GitHub's X-Poll-Interval, which can change between responses.
+      a.respond = () =>
+        Effect.succeed(Result.snapshot([activity("a1")], "1", "10 minutes"));
+
+      const first = yield* start(db, [a]);
+      yield* advance("6 minutes");
+      yield* first.stop;
+
+      a.respond = () => Effect.succeed(Result.unchanged("1 minute"));
+      const second = yield* start(db, [a]);
+      yield* advance("3 minutes");
+      assert.strictEqual(a.calls.length, 1);
+      yield* advance("1 minute");
+      assert.strictEqual(a.calls.length, 2);
+      // Then whatever the latest response asked for.
+      yield* advance("1 minute");
+      assert.strictEqual(a.calls.length, 3);
+      yield* second.stop;
+    }),
+  );
+
   it.effect(
     "rebuilds a source whose fingerprint changed, serving old rows until then",
     () =>
       Effect.gen(function* () {
         const db = tempDb();
         const a = fakeSource("a");
-        a.respond = () =>
-          Effect.succeed(Result.snapshot([activity("v1-row")], "a@1"));
+        a.respond = () => Effect.succeed(snap([activity("v1-row")], "a@1"));
         const first = yield* start(db, [a]);
         yield* first.stop;
 
@@ -286,7 +304,7 @@ describe("ActivityCache across restarts", () => {
         const release = yield* Deferred.make<void>();
         a.respond = () =>
           Deferred.await(release).pipe(
-            Effect.as(Result.snapshot([activity("v2-row")], "a@2")),
+            Effect.as(snap([activity("v2-row")], "a@2")),
           );
         const second = yield* start(db, [a]);
         assert.strictEqual(a.calls.length, 2);
@@ -343,7 +361,7 @@ describe("ActivityCache across restarts", () => {
       assert.strictEqual(a.calls.length, 1);
       yield* first.stop;
 
-      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "1"));
       const second = yield* start(db, [a]);
       // Our own backoff would retry after 30s; upstream said 10 minutes.
       yield* advance("9 minutes");
@@ -360,8 +378,8 @@ describe("ActivityCache across restarts", () => {
       const db = tempDb();
       const a = fakeSource("a");
       const b = fakeSource("b");
-      a.respond = () => Effect.succeed(Result.snapshot([activity("a1")], "1"));
-      b.respond = () => Effect.succeed(Result.snapshot([activity("b1")], "1"));
+      a.respond = () => Effect.succeed(snap([activity("a1")], "1"));
+      b.respond = () => Effect.succeed(snap([activity("b1")], "1"));
       const first = yield* start(db, [a, b]);
       assert.deepStrictEqual(yield* contents(first.cache), ["a1=a1", "b1=b1"]);
       yield* first.stop;
