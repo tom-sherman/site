@@ -4,3 +4,6 @@ packages:
 allowBuilds:
   sharp: false
   unrs-resolver: false
+
+catalog:
+  typescript: ^7.0.0
