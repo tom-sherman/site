@@ -14,6 +14,8 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 | `PORT`          | `3001`                                  |
 | `DATABASE_PATH` | `data/activity.db`                      |
 | `ATPROTO_DID`   | `did:plc:2xau7wbgdq4phuou2ypwuen7`      |
+| `GITHUB_USER`   | `tom-sherman`                           |
+| `GITHUB_TOKEN`  | optional; see [GitHub](#github)         |
 | `OIDC_ISSUER`   | required (dev: `http://localhost:3000`) |
 | `OIDC_AUDIENCE` | required (dev: `activity-cache`)        |
 
@@ -46,7 +48,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 Two tables:
 
-- `activity`: `source`, `id` (at-uri for atproto), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
+- `activity`: `source`, `id` (at-uri for atproto, `github:<event id>` for GitHub), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
 - `source_state`: one row per source with its fingerprint, last refresh, checkpoint and backoff. It's what lets a restart pick up where the last process left off.
 
 The data is disposable, but the store is durable: a restart serves what's there and doesn't call upstream until something is due.
@@ -57,7 +59,7 @@ Each source (`src/Source.ts`) refreshes independently, so one being down or rate
 
 - **Fingerprint.** Each source describes what it stores; for atproto that's the DID plus each collection and its mapper version. If it doesn't match the stored rows, the source is rebuilt on boot.
 - **Refresh timing.** Each result says when to ask again (`refreshAfter`): a constant for atproto, GitHub's `X-Poll-Interval` for GitHub. The cache stores it as an absolute time, so a restart doesn't move it.
-- **Checkpoint.** A source can cheaply say nothing changed. For atproto it's the repo revision: a refresh costs one `getLatestCommit` call, and the export is only downloaded when the revision moved on.
+- **Checkpoint.** A source can cheaply say nothing changed. For atproto it's the repo revision: a refresh costs one `getLatestCommit` call, and the export is only downloaded when the revision moved on. For GitHub it's the first page's ETag: a refresh is one conditional request, and a `304` means nothing changed.
 - **Backoff.** Every attempt is recorded before upstream is called: 30s, then doubling up to 1h. A process that crashes mid-refresh comes back to a backoff, not an immediate retry. If upstream says when to come back (`Retry-After` / `RateLimit-Reset`), that wins.
 
 A refresh swaps the source's rows in one transaction, so reads see the old rows until it commits:
@@ -79,10 +81,18 @@ Some activity is better shown as one item, like a Bluesky thread I want to call 
 
 Roll-ups happen when reading, so a record can arrive before or after the posts it collects. The roll-up takes the place and timestamp of the group's first activity, and the group's activities are in its `members`, oldest first, not in the feed. Until that first activity is cached (or once it's deleted or pruned), the roll-up is hidden and the group shows as usual. Roll-ups only collect within their own source. If two records collect the same group, the lowest id wins.
 
+### GitHub
+
+`src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it.
+
+- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the latest 300 events, so a busy month may be cut short. Events that shift onto the next page while paging are deduplicated.
+- **Token.** `GITHUB_TOKEN` is optional; any token works, it needs no scopes. Without one, GitHub allows 60 requests an hour per IP and even a `304` counts, so the source polls at most every 5 minutes instead of at `X-Poll-Interval` (usually 60s). With one, `304`s are free.
+- **Rate limits.** A `403`/`429` with `Retry-After`, or with `X-RateLimit-Remaining: 0` and `X-RateLimit-Reset`, becomes the source's next attempt time.
+
 ## Adding a data type
 
 **atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-**Another source** (e.g. GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
+**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
 
 Realtime sources call `ActivityCache.apply(source, mutations)`. For atproto that should go through `CollectionHandler.toActivity`, the same mapping snapshots use.

@@ -1,6 +1,6 @@
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { SqliteClient } from "@effect/sql-sqlite-node";
-import { Config, Effect, Layer, Schedule } from "effect";
+import { Config, Effect, Layer, Option, Schedule } from "effect";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { mkdirSync } from "node:fs";
 import { createServer } from "node:http";
@@ -12,6 +12,7 @@ import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import { Sources } from "./Source.ts";
 import { makeAtprotoRepoSource } from "./sources/atproto/AtprotoRepo.ts";
 import { collections } from "./sources/atproto/collections.ts";
+import { makeGitHubEventsSource } from "./sources/github/GitHubEvents.ts";
 import { Store } from "./Store.ts";
 
 const SqlLayer = Layer.unwrap(
@@ -30,7 +31,18 @@ const SourcesLayer = Layer.effect(
     const did = yield* Config.String("ATPROTO_DID").pipe(
       Config.withDefault("did:plc:2xau7wbgdq4phuou2ypwuen7"),
     );
-    return [yield* makeAtprotoRepoSource({ did, collections })];
+    const githubUser = yield* Config.String("GITHUB_USER").pipe(
+      Config.withDefault("tom-sherman"),
+    );
+    // Optional, but without one GitHub allows 60 requests an hour per IP.
+    const githubToken = yield* Config.option(Config.Redacted("GITHUB_TOKEN"));
+    return [
+      yield* makeAtprotoRepoSource({ did, collections }),
+      yield* makeGitHubEventsSource({
+        user: githubUser,
+        token: Option.getOrUndefined(githubToken),
+      }),
+    ];
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 
