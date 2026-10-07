@@ -7,13 +7,13 @@ import {
   HttpApiMiddleware,
   HttpApiSecurity,
 } from "effect/http-api";
-import { Activity } from "./Activity.ts";
+import { ActivityItem } from "./Activity.ts";
 
-export { Activity };
+export { ActivityItem };
 
 export const ActivityPage = Schema.Struct({
   /** Newest first. */
-  items: Schema.Array(Activity),
+  items: Schema.Array(ActivityItem),
   /** Pass as `before` to get the next (older) page; `null` on the last page. */
   cursor: Schema.NullOr(Schema.String),
 });
@@ -58,7 +58,7 @@ export class ActivityApi extends HttpApi.make("activity-cache")
               Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 500 })),
             ),
             before: Schema.optional(Schema.String),
-            /** Repeat to filter by several types. */
+            /** Repeat to filter by several types. Matches roll-ups, not their members. */
             type: Schema.optional(Schema.ArrayEnsure(Schema.String)),
           },
           success: ActivityPage,

@@ -19,60 +19,62 @@ const PDS = "https://pds.example";
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-06T12:00:00Z");
 
-const buildCar = async () => {
+type Write = Omit<RecordCreateOp, "action">;
+
+const buildCar = async (writes: ReadonlyArray<Write> = defaultWrites) => {
   const storage = new MemoryBlockstore();
   const repo = await Repo.create(
     storage,
     DID,
     await Secp256k1Keypair.create(),
-    (
-      [
-        {
-          collection: "app.bsky.feed.post",
-          rkey: "3mxafgjedwc2y",
-          record: {
-            $type: "app.bsky.feed.post",
-            text: "recent",
-            createdAt: new Date(NOW - DAY).toISOString(),
-          },
-        },
-        {
-          collection: "app.bsky.feed.post",
-          rkey: "3jzfcijpj2z2a",
-          record: {
-            $type: "app.bsky.feed.post",
-            text: "too old",
-            createdAt: new Date(NOW - 60 * DAY).toISOString(),
-          },
-        },
-        {
-          // Missing the required `createdAt`, so it doesn't parse and is skipped.
-          collection: "app.bsky.feed.post",
-          rkey: "3mxafgjedwc3a",
-          record: { $type: "app.bsky.feed.post", text: "invalid" },
-        },
-        {
-          // No `playedTime`: falls back to the TID's timestamp.
-          collection: "fm.teal.feed.play",
-          rkey: "3mxafgjedwc2z",
-          record: { $type: "fm.teal.feed.play", trackName: "Acolyte" },
-        },
-        {
-          // Not a cached collection.
-          collection: "app.bsky.feed.like",
-          rkey: "3mxafgjedwc2a",
-          record: {
-            $type: "app.bsky.feed.like",
-            subject: { uri: "at://x", cid: "y" },
-            createdAt: new Date(NOW).toISOString(),
-          },
-        },
-      ] satisfies Array<Omit<RecordCreateOp, "action">>
-    ).map((write) => ({ action: WriteOpAction.Create, ...write })),
+    writes.map((write) => ({ action: WriteOpAction.Create, ...write })),
   );
   const car = await concatBytesAsync(getFullRepo(storage, repo.cid));
   return { car, rev: repo.commit.rev, cid: repo.cid.toString() };
 };
+
+const defaultWrites: ReadonlyArray<Write> = [
+  {
+    collection: "app.bsky.feed.post",
+    rkey: "3mxafgjedwc2y",
+    record: {
+      $type: "app.bsky.feed.post",
+      text: "recent",
+      createdAt: new Date(NOW - DAY).toISOString(),
+    },
+  },
+  {
+    collection: "app.bsky.feed.post",
+    rkey: "3jzfcijpj2z2a",
+    record: {
+      $type: "app.bsky.feed.post",
+      text: "too old",
+      createdAt: new Date(NOW - 60 * DAY).toISOString(),
+    },
+  },
+  {
+    // Missing the required `createdAt`, so it doesn't parse and is skipped.
+    collection: "app.bsky.feed.post",
+    rkey: "3mxafgjedwc3a",
+    record: { $type: "app.bsky.feed.post", text: "invalid" },
+  },
+  {
+    // No `playedTime`: falls back to the TID's timestamp.
+    collection: "fm.teal.feed.play",
+    rkey: "3mxafgjedwc2z",
+    record: { $type: "fm.teal.feed.play", trackName: "Acolyte" },
+  },
+  {
+    // Not a cached collection.
+    collection: "app.bsky.feed.like",
+    rkey: "3mxafgjedwc2a",
+    record: {
+      $type: "app.bsky.feed.like",
+      subject: { uri: "at://x", cid: "y" },
+      createdAt: new Date(NOW).toISOString(),
+    },
+  },
+];
 
 interface Network {
   getRepo: () => Promise<Response>;
@@ -144,7 +146,7 @@ const sourceError = <A, E>(exit: Exit.Exit<A, E>) => {
 describe("AtprotoRepo", () => {
   it.effect("maps cached collections from a full repo export", () =>
     Effect.gen(function* () {
-      const { car, rev } = yield* Effect.promise(buildCar);
+      const { car, rev } = yield* Effect.promise(() => buildCar());
       const net = network({ getRepo: serveCar(car) });
       const result = yield* snapshot({ since: NOW - 30 * DAY }).pipe(
         Effect.provide(mockNetwork(net)),
@@ -175,9 +177,96 @@ describe("AtprotoRepo", () => {
     }),
   );
 
+  it.effect("groups self-threads and collects them with thread records", () =>
+    Effect.gen(function* () {
+      const OTHER = "did:plc:someoneelsesomeoneelse0";
+      const CID = "bafyreia7rgxu7467phwpcgzaw62l5bzmxufkpikrc5zm4q3xhjmuhq4pti";
+      const mine = (rkey: string) => `at://${DID}/app.bsky.feed.post/${rkey}`;
+      const theirs = `at://${OTHER}/app.bsky.feed.post/3mxafgjedwa2a`;
+      const post = (
+        rkey: string,
+        reply?: { root: string; parent: string },
+      ): Write => ({
+        collection: "app.bsky.feed.post",
+        rkey,
+        record: {
+          $type: "app.bsky.feed.post",
+          text: rkey,
+          createdAt: new Date(NOW - DAY).toISOString(),
+          ...(reply && {
+            reply: {
+              root: { uri: reply.root, cid: CID },
+              parent: { uri: reply.parent, cid: CID },
+            },
+          }),
+        },
+      });
+      const { car } = yield* Effect.promise(() =>
+        buildCar([
+          post("3mxafgjedwb2a"),
+          // Continuing my own thread.
+          post("3mxafgjedwb2b", {
+            root: mine("3mxafgjedwb2a"),
+            parent: mine("3mxafgjedwb2a"),
+          }),
+          // Answering someone in my thread: a conversation, not the thread.
+          post("3mxafgjedwb2c", {
+            root: mine("3mxafgjedwb2a"),
+            parent: theirs,
+          }),
+          // Replying in someone else's thread.
+          post("3mxafgjedwb2d", { root: theirs, parent: theirs }),
+          {
+            collection: "is.sherman.unspecced.thread",
+            rkey: "3mxafgjedwb2e",
+            record: {
+              $type: "is.sherman.unspecced.thread",
+              subject: { uri: mine("3mxafgjedwb2a"), cid: CID },
+              title: "A thread",
+              createdAt: new Date(NOW).toISOString(),
+            },
+          },
+        ]),
+      );
+      const result = yield* snapshot({ since: NOW - 30 * DAY }).pipe(
+        Effect.provide(mockNetwork(network({ getRepo: serveCar(car) }))),
+      );
+      assert.strictEqual(result._tag, "Snapshot");
+      if (result._tag !== "Snapshot") return;
+      const rollups = Object.fromEntries(
+        result.activities.map((a) => [
+          a.id.split("/").slice(3).join("/"),
+          { group: a.group, collects: a.collects },
+        ]),
+      );
+      assert.deepStrictEqual(rollups, {
+        "app.bsky.feed.post/3mxafgjedwb2a": {
+          group: mine("3mxafgjedwb2a"),
+          collects: undefined,
+        },
+        "app.bsky.feed.post/3mxafgjedwb2b": {
+          group: mine("3mxafgjedwb2a"),
+          collects: undefined,
+        },
+        "app.bsky.feed.post/3mxafgjedwb2c": {
+          group: undefined,
+          collects: undefined,
+        },
+        "app.bsky.feed.post/3mxafgjedwb2d": {
+          group: undefined,
+          collects: undefined,
+        },
+        "is.sherman.unspecced.thread/3mxafgjedwb2e": {
+          group: undefined,
+          collects: mine("3mxafgjedwb2a"),
+        },
+      });
+    }),
+  );
+
   it.effect("skips the export when the repo revision hasn't changed", () =>
     Effect.gen(function* () {
-      const { car, rev, cid } = yield* Effect.promise(buildCar);
+      const { car, rev, cid } = yield* Effect.promise(() => buildCar());
       const net = network({
         getRepo: serveCar(car),
         getLatestCommit: async () => Response.json({ cid, rev }),
@@ -192,7 +281,7 @@ describe("AtprotoRepo", () => {
 
   it.effect("fetches the export when the revision moved on", () =>
     Effect.gen(function* () {
-      const { car, rev, cid } = yield* Effect.promise(buildCar);
+      const { car, rev, cid } = yield* Effect.promise(() => buildCar());
       const net = network({
         getRepo: serveCar(car),
         getLatestCommit: async () => Response.json({ cid, rev }),
@@ -261,7 +350,7 @@ describe("AtprotoRepo", () => {
       }).pipe(Effect.provide(mockNetwork(network({}))));
       assert.strictEqual(
         source.fingerprint,
-        `did=${DID};collections=app.bsky.feed.post@1,fm.teal.feed.play@1`,
+        `did=${DID};collections=app.bsky.feed.post@2,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
       );
     }),
   );

@@ -19,7 +19,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 ## API
 
-- `GET /activity?limit=50&before=<cursor>&type=<type>&type=…`: newest first, `{ items, cursor }`. `503` until the first build finishes.
+- `GET /activity?limit=50&before=<cursor>&type=<type>&type=…`: newest first, `{ items, cursor }`, with [roll-ups](#roll-ups) in place of what they roll up. `type` matches the roll-up, not its members. `503` until the first build finishes.
 - `GET /status`: per source, whether its rows match the current fingerprint, when it last refreshed, and any backoff. Unauthenticated, for health checks.
 
 `src/api.ts` is the `HttpApi` definition, so a typed client can be generated from it.
@@ -46,7 +46,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 Two tables:
 
-- `activity`: `source`, `id` (at-uri for atproto), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
+- `activity`: `source`, `id` (at-uri for atproto), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
 - `source_state`: one row per source with its fingerprint, last refresh, checkpoint and backoff. It's what lets a restart pick up where the last process left off.
 
 The data is disposable, but the store is durable: a restart serves what's there and doesn't call upstream until something is due.
@@ -70,9 +70,18 @@ Every change ends up in the snapshot, the buffer, or both. Replaying upserts and
 
 A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and lets sources refill.
 
+### Roll-ups
+
+Some activity is better shown as one item, like a Bluesky thread I want to call out as writing. A source can say so per record, so snapshots and realtime writes need nothing extra:
+
+- `group`: the group an activity belongs to, keyed by the id of the group's first activity. Each post's group is its thread's root post, and a top-level post is the root of its own thread. Like Bluesky's author threads, a reply only counts when its root and parent are both mine, so replies to other people stay separate.
+- `collects`: rolls a group up. An `is.sherman.unspecced.thread` record collects the thread its `subject` starts.
+
+Roll-ups happen when reading, so a record can arrive before or after the posts it collects. The roll-up takes the place and timestamp of the group's first activity, and the group's activities are in its `members`, oldest first, not in the feed. Until that first activity is cached (or once it's deleted or pruned), the roll-up is hidden and the group shows as usual. Roll-ups only collect within their own source. If two records collect the same group, the lowest id wins.
+
 ## Adding a data type
 
-**atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
+**atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
 **Another source** (e.g. GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
 
