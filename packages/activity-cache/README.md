@@ -75,7 +75,7 @@ A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and 
 Some activity is better shown as one item, like a Bluesky thread I want to call out as writing. A source can say so per record, so snapshots and realtime writes need nothing extra:
 
 - `group`: the group an activity belongs to, keyed by the id of the group's first activity. Each post's group is its thread's root post, and a top-level post is the root of its own thread. Like Bluesky's author threads, a reply only counts when its root and parent are both mine, so replies to other people stay separate.
-- `collects`: rolls a group up. A `dev.tomsherman.feed.thread` record collects the thread its `subject` starts.
+- `collects`: rolls a group up. An `is.sherman.unspecced.thread` record collects the thread its `subject` starts.
 
 Roll-ups happen when reading, so a record can arrive before or after the posts it collects. The roll-up takes the place and timestamp of the group's first activity, and the group's activities are in its `members`, oldest first, not in the feed. Until that first activity is cached (or once it's deleted or pruned), the roll-up is hidden and the group shows as usual. Roll-ups only collect within their own source. If two records collect the same group, the lowest id wins.
 

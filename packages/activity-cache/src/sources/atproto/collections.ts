@@ -5,7 +5,7 @@ import {
   type Main,
   type RecordSchema,
 } from "@atproto/lex";
-import { app, dev, fm } from "@repo/atproto-client";
+import { app, fm, is } from "@repo/atproto-client";
 import { parse } from "@repo/atproto-client/effect";
 import { Effect, type Schema } from "effect";
 import type { Activity } from "../../Activity.ts";
@@ -103,7 +103,7 @@ export const collections: ReadonlyArray<CollectionHandler> = [
     version: 2,
   }),
   // Calls out a thread as writing: it's served as one item, posts included.
-  recordCollection(dev.tomsherman.feed.thread, {
+  recordCollection(is.sherman.unspecced.thread, {
     timestamp: (r) => r.createdAt,
     rollup: (thread) => ({ collects: thread.subject.uri }),
   }),

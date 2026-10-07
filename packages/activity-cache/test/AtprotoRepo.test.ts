@@ -217,10 +217,10 @@ describe("AtprotoRepo", () => {
           // Replying in someone else's thread.
           post("3mxafgjedwb2d", { root: theirs, parent: theirs }),
           {
-            collection: "dev.tomsherman.feed.thread",
+            collection: "is.sherman.unspecced.thread",
             rkey: "3mxafgjedwb2e",
             record: {
-              $type: "dev.tomsherman.feed.thread",
+              $type: "is.sherman.unspecced.thread",
               subject: { uri: mine("3mxafgjedwb2a"), cid: CID },
               title: "A thread",
               createdAt: new Date(NOW).toISOString(),
@@ -256,7 +256,7 @@ describe("AtprotoRepo", () => {
           group: undefined,
           collects: undefined,
         },
-        "dev.tomsherman.feed.thread/3mxafgjedwb2e": {
+        "is.sherman.unspecced.thread/3mxafgjedwb2e": {
           group: undefined,
           collects: mine("3mxafgjedwb2a"),
         },
@@ -350,7 +350,7 @@ describe("AtprotoRepo", () => {
       }).pipe(Effect.provide(mockNetwork(network({}))));
       assert.strictEqual(
         source.fingerprint,
-        `did=${DID};collections=app.bsky.feed.post@2,dev.tomsherman.feed.thread@1,fm.teal.feed.play@1`,
+        `did=${DID};collections=app.bsky.feed.post@2,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
       );
     }),
   );

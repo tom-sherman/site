@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "dev.tomsherman.feed.thread",
+  "id": "is.sherman.unspecced.thread",
   "defs": {
     "main": {
       "type": "record",

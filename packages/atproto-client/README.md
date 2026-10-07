@@ -4,7 +4,7 @@ Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.
 
 Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.feed.play`
 
-Authored here: `dev.tomsherman.feed.thread` (see [Our own lexicons](#our-own-lexicons))
+Authored here: `is.sherman.unspecced.thread` (see [Our own lexicons](#our-own-lexicons))
 
 ## Usage
 
@@ -94,9 +94,11 @@ pnpm lex:install --ci
 
 ### Our own lexicons
 
-Lexicons under the `dev.tomsherman` namespace are written by hand in `lexicons/dev/tomsherman/`, not installed. `lex install` leaves them alone because they aren't in `lexicons.json`, and `pnpm build` generates them like any other. Export the `dev` namespace from `src/index.ts` (already done).
+Lexicons under `is.sherman.unspecced` are written by hand in `lexicons/is/sherman/unspecced/`, not installed. `lex install` leaves them alone because they aren't in `lexicons.json`, and `pnpm build` generates them like any other. Export the `is` namespace from `src/index.ts` (already done).
 
-- `dev.tomsherman.feed.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
+They're unspecced: records only this site reads, so the lexicons aren't published and can change freely.
+
+- `is.sherman.unspecced.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
 
 ### Notes
 
