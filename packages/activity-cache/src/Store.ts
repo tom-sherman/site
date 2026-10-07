@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from "effect";
 import { SqlClient } from "effect/sql";
-import type { Activity, Mutation } from "./Activity.ts";
+import type { Activity, ActivityItem, Mutation } from "./Activity.ts";
 
 export interface PageCursor {
   readonly timestamp: number;
@@ -30,13 +30,21 @@ export interface SourceState {
   readonly failures: number;
 }
 
-const Row = Schema.Struct({
+const rowFields = {
+  source: Schema.String,
   id: Schema.String,
   timestamp: Schema.Int,
   type: Schema.String,
   data: Schema.fromJsonString(Schema.Json),
+};
+/** A feed entry; `rollup` is the group a roll-up collects. */
+const FeedRow = Schema.Struct({
+  ...rowFields,
+  rollup: Schema.NullOr(Schema.String),
 });
-const decodeRows = Schema.decodeUnknownEffect(Schema.Array(Row));
+const decodeFeedRows = Schema.decodeUnknownEffect(Schema.Array(FeedRow));
+const MemberRow = Schema.Struct({ ...rowFields, group_id: Schema.String });
+const decodeMemberRows = Schema.decodeUnknownEffect(Schema.Array(MemberRow));
 
 const StateRow = Schema.Struct({
   source: Schema.String,
@@ -62,7 +70,7 @@ const toState = (row: typeof StateRow.Type): SourceState => ({
  * Bump when the table layout changes. The data is disposable, so an older
  * layout is dropped and every source refills on its next refresh.
  */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const BATCH_SIZE = 500;
 
@@ -113,9 +121,10 @@ export class Store extends Context.Service<
       source: string,
       mutations: ReadonlyArray<Mutation>,
     ) => Effect.Effect<void>;
+    /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
       query: PageQuery,
-    ) => Effect.Effect<ReadonlyArray<Activity>>;
+    ) => Effect.Effect<ReadonlyArray<ActivityItem>>;
     readonly prune: (olderThan: number) => Effect.Effect<number>;
   }
 >()("activity-cache/Store") {
@@ -141,10 +150,14 @@ export class Store extends Context.Service<
             timestamp INTEGER NOT NULL,
             type TEXT NOT NULL,
             data TEXT NOT NULL,
+            group_id TEXT,
+            collects TEXT,
             PRIMARY KEY (source, id)
           )
         `;
         yield* sql`CREATE INDEX activity_timestamp ON activity (timestamp DESC, id DESC)`;
+        yield* sql`CREATE INDEX activity_group ON activity (source, group_id) WHERE group_id IS NOT NULL`;
+        yield* sql`CREATE INDEX activity_collects ON activity (source, collects) WHERE collects IS NOT NULL`;
         yield* sql`
           CREATE TABLE source_state (
             source TEXT PRIMARY KEY,
@@ -231,12 +244,16 @@ export class Store extends Context.Service<
                   timestamp: a.timestamp,
                   type: a.type,
                   data: JSON.stringify(a.data),
+                  group_id: a.group ?? null,
+                  collects: a.collects ?? null,
                 })),
               )}
               ON CONFLICT (source, id) DO UPDATE SET
                 timestamp = excluded.timestamp,
                 type = excluded.type,
-                data = excluded.data
+                data = excluded.data,
+                group_id = excluded.group_id,
+                collects = excluded.collects
             `,
           { discard: true },
         );
@@ -321,18 +338,65 @@ export class Store extends Context.Service<
           yield* sql`DELETE FROM source_state WHERE source NOT IN ${keep}`;
         }).pipe(sql.withTransaction, Effect.orDie);
 
+      // `rollups` is one row per group that's rolled up: the winning
+      // collector's id, at its group's first activity's timestamp. The feed is
+      // everything else, minus collectors and the groups they roll up.
       const query = (query: PageQuery) =>
-        sql`
-          SELECT id, timestamp, type, data FROM activity
-          WHERE ${sql.and([
-            query.before
-              ? sql`(timestamp, id) < (${query.before.timestamp}, ${query.before.id})`
-              : sql`1 = 1`,
-            query.types?.length ? sql.in("type", query.types) : sql`1 = 1`,
-          ])}
-          ORDER BY timestamp DESC, id DESC
-          LIMIT ${query.limit}
-        `.pipe(Effect.flatMap(decodeRows), Effect.orDie);
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            WITH rollups AS (
+              SELECT c.source, c.collects AS group_id, MIN(c.id) AS id, f.timestamp
+              FROM activity c
+              JOIN activity f ON f.source = c.source AND f.id = c.collects
+              WHERE c.collects IS NOT NULL
+              GROUP BY c.source, c.collects
+            ),
+            feed AS (
+              SELECT a.source, a.id, a.timestamp, a.type, a.data, NULL AS rollup
+              FROM activity a
+              WHERE a.collects IS NULL AND NOT EXISTS (
+                SELECT 1 FROM rollups r
+                WHERE r.source = a.source AND r.group_id = a.group_id
+              )
+              UNION ALL
+              SELECT c.source, c.id, r.timestamp, c.type, c.data, r.group_id
+              FROM rollups r
+              JOIN activity c ON c.source = r.source AND c.id = r.id
+            )
+            SELECT * FROM feed
+            WHERE ${sql.and([
+              query.before
+                ? sql`(timestamp, id) < (${query.before.timestamp}, ${query.before.id})`
+                : sql`1 = 1`,
+              query.types?.length ? sql.in("type", query.types) : sql`1 = 1`,
+            ])}
+            ORDER BY timestamp DESC, id DESC
+            LIMIT ${query.limit}
+          `.pipe(Effect.flatMap(decodeFeedRows));
+
+          const groups = [
+            ...new Set(rows.flatMap((r) => (r.rollup ? [r.rollup] : []))),
+          ];
+          const members = groups.length
+            ? yield* sql`
+                SELECT source, group_id, id, timestamp, type, data FROM activity
+                WHERE ${sql.in("group_id", groups)}
+                ORDER BY timestamp ASC, id ASC
+              `.pipe(Effect.flatMap(decodeMemberRows))
+            : [];
+          const membersOf = (row: typeof FeedRow.Type) =>
+            members
+              .filter(
+                (m) => m.source === row.source && m.group_id === row.rollup,
+              )
+              .map(toItem);
+
+          return rows.map((row): ActivityItem =>
+            row.rollup === null
+              ? toItem(row)
+              : { ...toItem(row), members: membersOf(row) },
+          );
+        }).pipe(sql.withTransaction, Effect.orDie);
 
       const prune = (olderThan: number) =>
         sql`DELETE FROM activity WHERE timestamp < ${olderThan} RETURNING id`.pipe(
@@ -355,6 +419,18 @@ export class Store extends Context.Service<
     }),
   );
 }
+
+const toItem = (row: {
+  readonly id: string;
+  readonly timestamp: number;
+  readonly type: string;
+  readonly data: Schema.Json;
+}): ActivityItem => ({
+  id: row.id,
+  timestamp: row.timestamp,
+  type: row.type,
+  data: row.data,
+});
 
 const chunks = <A>(items: ReadonlyArray<A>, size: number): Array<Array<A>> => {
   const result: Array<Array<A>> = [];

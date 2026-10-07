@@ -8,7 +8,7 @@ import {
   Schedule,
   Semaphore,
 } from "effect";
-import { type Activity, type Mutation, RETENTION_MS } from "./Activity.ts";
+import { type ActivityItem, type Mutation, RETENTION_MS } from "./Activity.ts";
 import { type Source, type SourceError, Sources } from "./Source.ts";
 import { type PageQuery, type SourceState, Store } from "./Store.ts";
 
@@ -54,9 +54,10 @@ export class ActivityCache extends Context.Service<
     readonly refresh: (source: string) => Effect.Effect<void, SourceError>;
     /** Keeps every source fresh and prunes old rows. Runs forever. */
     readonly run: Effect.Effect<never>;
+    /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
       query: PageQuery,
-    ) => Effect.Effect<ReadonlyArray<Activity>>;
+    ) => Effect.Effect<ReadonlyArray<ActivityItem>>;
     /** Drops activity older than the retention window. */
     readonly prune: Effect.Effect<void>;
     readonly status: Effect.Effect<ReadonlyArray<SourceStatus>>;

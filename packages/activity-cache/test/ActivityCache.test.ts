@@ -16,7 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach } from "vitest";
-import { type Activity, Mutation, RETENTION_MS } from "../src/Activity.ts";
+import {
+  type Activity,
+  type ActivityItem,
+  Mutation,
+  RETENTION_MS,
+} from "../src/Activity.ts";
 import { ActivityCache } from "../src/ActivityCache.ts";
 import {
   type SnapshotResult,
@@ -25,7 +30,7 @@ import {
   SourceError,
   Sources,
 } from "../src/Source.ts";
-import { Store } from "../src/Store.ts";
+import { type PageCursor, type PageQuery, Store } from "../src/Store.ts";
 
 const activity = (
   id: string,
@@ -417,6 +422,185 @@ describe("ActivityCache across restarts", () => {
         .map((r) => r.name);
       check.close();
       assert.deepStrictEqual(tables, ["activity", "source_state"]);
+    }),
+  );
+});
+
+describe("ActivityCache roll-ups", () => {
+  const post = (id: string, timestamp: number, group?: string): Activity => ({
+    id,
+    timestamp,
+    type: "post",
+    data: id,
+    group,
+  });
+  const thread = (id: string, timestamp: number, collects: string) => ({
+    id,
+    timestamp,
+    type: "thread",
+    data: id,
+    collects,
+  });
+
+  /** `id@timestamp`, plus `[members]` for roll-ups. */
+  const outline = (items: ReadonlyArray<ActivityItem>) =>
+    items.map(
+      (a) =>
+        `${a.id}@${a.timestamp}` +
+        (a.members ? `[${a.members.map((m) => m.id).join(",")}]` : ""),
+    );
+
+  const feed = (
+    cache: ActivityCache["Service"],
+    query: Partial<PageQuery> = {},
+  ) => cache.query({ limit: 100, ...query }).pipe(Effect.map(outline));
+
+  const withRows = (rows: ReadonlyArray<Activity>) =>
+    Effect.gen(function* () {
+      const a = fakeSource("a");
+      a.respond = () => Effect.succeed(snap(rows, "1"));
+      const process = yield* boot(tempDb(), [a]);
+      yield* process.cache.refresh("a");
+      return process;
+    });
+
+  it.effect(
+    "serves a roll-up in place of its group, at the group's first activity",
+    () =>
+      Effect.gen(function* () {
+        const { cache, stop } = yield* withRows([
+          post("root", 100, "root"),
+          post("reply-1", 200, "root"),
+          post("reply-2", 300, "root"),
+          post("other", 250, "other"),
+          post("ungrouped", 150),
+          thread("marker", 1000, "root"),
+        ]);
+        assert.deepStrictEqual(yield* feed(cache), [
+          "other@250",
+          "ungrouped@150",
+          "marker@100[root,reply-1,reply-2]",
+        ]);
+        const [, , rollup] = yield* cache.query({ limit: 100 });
+        assert.deepStrictEqual(rollup!.members![1], {
+          id: "reply-1",
+          timestamp: 200,
+          type: "post",
+          data: "reply-1",
+        });
+        yield* stop;
+      }),
+  );
+
+  it.effect("shows the group as usual until its first activity is here", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("reply", 200, "root"),
+        thread("marker", 1000, "root"),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache), ["reply@200"]);
+
+      yield* cache.apply("a", [Mutation.upsert(post("root", 100, "root"))]);
+      assert.deepStrictEqual(yield* feed(cache), ["marker@100[root,reply]"]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("rolls up and unrolls with realtime writes", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("root", 100, "root"),
+        post("reply", 200, "root"),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache), ["reply@200", "root@100"]);
+
+      yield* cache.apply("a", [
+        Mutation.upsert(thread("marker", 1000, "root")),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache), ["marker@100[root,reply]"]);
+
+      yield* cache.apply("a", [Mutation.upsert(post("late", 300, "root"))]);
+      assert.deepStrictEqual(yield* feed(cache), [
+        "marker@100[root,reply,late]",
+      ]);
+
+      yield* cache.apply("a", [Mutation.delete("marker")]);
+      assert.deepStrictEqual(yield* feed(cache), [
+        "late@300",
+        "reply@200",
+        "root@100",
+      ]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("lets the lowest id win when several collect one group", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("root", 100, "root"),
+        thread("t2", 1000, "root"),
+        thread("t1", 2000, "root"),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache), ["t1@100[root]"]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("pages by the roll-up's timestamp", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("newer", 400),
+        post("root", 200, "root"),
+        post("reply", 500, "root"),
+        thread("marker", 1000, "root"),
+        post("older", 100),
+      ]);
+      const pages: Array<Array<string>> = [];
+      let before: PageCursor | undefined;
+      for (let i = 0; i < 4; i++) {
+        const page = yield* cache.query({ limit: 1, before });
+        if (!page.length) break;
+        pages.push(outline(page));
+        before = page[0]!;
+      }
+      assert.deepStrictEqual(pages, [
+        ["newer@400"],
+        ["marker@200[root,reply]"],
+        ["older@100"],
+      ]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("filters by type after rolling up", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("root", 100, "root"),
+        post("other", 200),
+        thread("marker", 1000, "root"),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache, { types: ["post"] }), [
+        "other@200",
+      ]);
+      assert.deepStrictEqual(yield* feed(cache, { types: ["thread"] }), [
+        "marker@100[root]",
+      ]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("only rolls up within a source", () =>
+    Effect.gen(function* () {
+      const a = fakeSource("a");
+      const b = fakeSource("b");
+      a.respond = () => Effect.succeed(snap([post("root", 100, "root")], "1"));
+      b.respond = () =>
+        Effect.succeed(snap([thread("marker", 1000, "root")], "1"));
+      const { cache, stop } = yield* boot(tempDb(), [a, b]);
+      yield* cache.refresh("a");
+      yield* cache.refresh("b");
+      assert.deepStrictEqual(yield* feed(cache), ["root@100"]);
+      yield* stop;
     }),
   );
 });
