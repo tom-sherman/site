@@ -1,6 +1,7 @@
 import { SqliteClient } from "@effect/sql-sqlite-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
+  type Cause,
   Context,
   Deferred,
   Duration,
@@ -8,7 +9,9 @@ import {
   Exit,
   Fiber,
   Layer,
+  Queue,
   Scope,
+  Stream,
 } from "effect";
 import { TestClock } from "effect/testing";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -24,6 +27,8 @@ import {
 } from "../src/Activity.ts";
 import { ActivityCache } from "../src/ActivityCache.ts";
 import {
+  Change,
+  CursorStore,
   type SnapshotResult,
   SnapshotResult as Result,
   type Source,
@@ -73,6 +78,52 @@ const fakeSource = (name: string) => {
   return Object.assign(fake, { source });
 };
 type Fake = ReturnType<typeof fakeSource>;
+
+/**
+ * A fake realtime source. Each time it's followed, it records the cursor it
+ * loaded, then applies whatever the test emits, saving the cursor after.
+ */
+const streamingSource = (name: string) => {
+  const fake = fakeSource(name);
+  const opens: Array<string | undefined> = [];
+  type Item = { readonly change: Change; readonly cursor?: string };
+  let queue: Queue.Queue<Item, SourceError | Cause.Done> | undefined;
+  const snapshot = fake.source.snapshot;
+  fake.source = {
+    name,
+    get fingerprint() {
+      return fake.fingerprint;
+    },
+    snapshot,
+    follow: (apply) =>
+      Effect.gen(function* () {
+        const cursors = yield* CursorStore;
+        opens.push(yield* cursors.load);
+        queue = yield* Queue.unbounded<Item, SourceError | Cause.Done>();
+        yield* Stream.fromQueue(queue).pipe(
+          Stream.runForEach(({ change, cursor }) =>
+            apply(change).pipe(
+              Effect.andThen(
+                cursor === undefined ? Effect.void : cursors.save(cursor),
+              ),
+            ),
+          ),
+        );
+      }),
+  };
+  return Object.assign(fake, {
+    opens,
+    /** Applies a change (then saves `cursor`, if given), and lets it land. */
+    emit: (change: Change, cursor?: string) =>
+      Effect.suspend(() => Queue.offer(queue!, { change, cursor })).pipe(
+        Effect.andThen(settle),
+      ),
+    /** Fails the current `follow`. */
+    break: Effect.suspend(() => Queue.fail(queue!, failure())).pipe(
+      Effect.andThen(settle),
+    ),
+  });
+};
 
 const failure = (retryAt?: number) =>
   new SourceError({ source: "fake", message: "boom", retryAt, cause: null });
@@ -715,5 +766,126 @@ describe("ActivityCache roll-ups", () => {
       assert.deepStrictEqual(yield* feed(cache), ["root@100"]);
       yield* stop;
     }),
+  );
+});
+
+describe("ActivityCache realtime sources", () => {
+  it.effect(
+    "writes each batch, and resumes from the source's saved cursor after a restart",
+    () =>
+      Effect.gen(function* () {
+        const db = tempDb();
+        const a = streamingSource("a");
+        a.respond = () => Effect.succeed(snap([activity("a1")], "rev1"));
+
+        const first = yield* start(db, [a]);
+        assert.deepStrictEqual(a.opens, [undefined]);
+        yield* a.emit(
+          Change.batch([Mutation.upsert(activity("a2"))], "rev2"),
+          "c1",
+        );
+        assert.deepStrictEqual(yield* contents(first.cache), [
+          "a1=a1",
+          "a2=a2",
+        ]);
+        // A batch without a checkpoint leaves it alone.
+        yield* a.emit(Change.batch([Mutation.delete("a1")]), "c2");
+        const [status] = yield* first.cache.status;
+        assert.strictEqual(status!.cursor, "c2");
+        assert.strictEqual(status!.checkpoint, "rev2");
+        yield* first.stop;
+
+        const second = yield* start(db, [a]);
+        assert.deepStrictEqual(a.opens, [undefined, "c2"]);
+        assert.deepStrictEqual(yield* contents(second.cache), ["a2=a2"]);
+        // The next check asks about where the stream got to, not the snapshot.
+        yield* advance("5 minutes");
+        assert.strictEqual(a.calls.length, 2);
+        assert.strictEqual(a.calls[1]!.checkpoint, "rev2");
+        yield* second.stop;
+      }),
+  );
+
+  it.effect(
+    "rebuilds straight away after a gap, without waiting for the schedule",
+    () =>
+      Effect.gen(function* () {
+        const a = streamingSource("a");
+        a.respond = () => Effect.succeed(snap([activity("a1")], "rev1"));
+        const { cache, stop } = yield* start(tempDb(), [a]);
+        assert.strictEqual(a.calls.length, 1);
+
+        a.respond = () => Effect.succeed(snap([activity("a2")], "rev5"));
+        yield* a.emit(Change.gap(), "c9");
+        assert.strictEqual(a.calls.length, 2);
+        // A rebuild: the old checkpoint can't vouch for the rows any more.
+        assert.strictEqual(a.calls[1]!.checkpoint, undefined);
+        assert.deepStrictEqual(yield* contents(cache), ["a2=a2"]);
+        const [status] = yield* cache.status;
+        assert.isTrue(status!.upToDate);
+        assert.strictEqual(status!.cursor, "c9");
+        assert.strictEqual(status!.checkpoint, "rev5");
+        yield* stop;
+      }),
+  );
+
+  it.effect("rebuilds again when a gap happens during a refresh", () =>
+    Effect.gen(function* () {
+      const a = streamingSource("a");
+      a.respond = () => Effect.succeed(snap([activity("a1")], "rev1"));
+      const { cache, stop } = yield* start(tempDb(), [a]);
+
+      const release = yield* Deferred.make<void>();
+      a.respond = () =>
+        Deferred.await(release).pipe(
+          Effect.as(snap([activity("stale")], "rev2")),
+        );
+      yield* a.emit(Change.gap());
+      assert.strictEqual(a.calls.length, 2);
+
+      // While that snapshot is in flight: a write, then another gap.
+      yield* a.emit(Change.batch([Mutation.upsert(activity("live"))], "rev3"));
+      yield* a.emit(Change.gap());
+      a.respond = () =>
+        Effect.succeed(snap([activity("fresh"), activity("live")], "rev4"));
+      yield* Deferred.succeed(release, undefined);
+      yield* settle;
+
+      // The tainted snapshot went in (with the write on top), then straight
+      // into another rebuild.
+      assert.strictEqual(a.calls.length, 3);
+      assert.strictEqual(a.calls[2]!.checkpoint, undefined);
+      assert.deepStrictEqual(yield* contents(cache), [
+        "fresh=fresh",
+        "live=live",
+      ]);
+      assert.isTrue((yield* cache.status)[0]!.upToDate);
+      yield* stop;
+    }),
+  );
+
+  it.effect(
+    "follows again after a failure, from the saved cursor, backing off",
+    () =>
+      Effect.gen(function* () {
+        const a = streamingSource("a");
+        a.respond = () => Effect.succeed(snap([], "rev1"));
+        const { stop } = yield* start(tempDb(), [a]);
+
+        yield* a.emit(Change.batch([]), "c1");
+        yield* a.break;
+        yield* advance("29 seconds");
+        assert.deepStrictEqual(a.opens, [undefined]);
+        yield* advance("1 second");
+        assert.deepStrictEqual(a.opens, [undefined, "c1"]);
+
+        // Failing again without delivering anything waits longer.
+        yield* a.break;
+        yield* advance("59 seconds");
+        assert.strictEqual(a.opens.length, 2);
+        yield* advance("1 second");
+        assert.strictEqual(a.opens.length, 3);
+        yield* stop;
+      }),
   );
 });

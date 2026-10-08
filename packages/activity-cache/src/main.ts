@@ -8,6 +8,7 @@ import { dirname } from "node:path";
 import { ActivityCache } from "./ActivityCache.ts";
 import { ConfigLayer, required } from "./config.ts";
 import { HttpLayer } from "./http.ts";
+import { Jetstream } from "./jetstream/Jetstream.ts";
 import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import { Sources } from "./Source.ts";
 import { makeAtprotoRepoSource } from "./sources/atproto/AtprotoRepo.ts";
@@ -44,7 +45,17 @@ const SourcesLayer = Layer.effect(
       }),
     ];
   }),
-).pipe(Layer.provide(FetchHttpClient.layer));
+).pipe(
+  Layer.provide(FetchHttpClient.layer),
+  Layer.provide(
+    Layer.unwrap(
+      Config.String("JETSTREAM_URL").pipe(
+        Config.withDefault("https://jetstream.us-east.bsky.network"),
+        Effect.map((service) => Jetstream.layer({ service })),
+      ),
+    ),
+  ),
+);
 
 const CacheLayer = ActivityCache.layer.pipe(
   Layer.provide([Store.layer.pipe(Layer.provide(SqlLayer)), SourcesLayer]),
