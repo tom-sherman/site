@@ -59,6 +59,13 @@ const styles = stylex.create({
     },
     textUnderlineOffset: 3,
   },
+  // Only underlined on hover, for links that would be noisy at rest.
+  linkQuiet: {
+    textDecorationLine: {
+      default: "none",
+      ":hover": "underline",
+    },
+  },
   note: {
     fontFamily: fonts.mono,
     fontSize: fontSizes.label,
@@ -134,18 +141,27 @@ export function Rule() {
   return <span aria-hidden {...stylex.props(styles.rule)} />;
 }
 
-/** Underline that is faint at rest and full ink on hover. */
+/**
+ * Underline that is faint at rest and full ink on hover. `quiet` drops the
+ * underline at rest, e.g. for timestamps.
+ */
 export function TextLink({
   href,
   rel,
+  variant = "default",
   children,
 }: {
   href: string;
   rel?: string;
+  variant?: "default" | "quiet";
   children: ReactNode;
 }) {
   return (
-    <Link href={href} rel={rel} {...stylex.props(styles.link)}>
+    <Link
+      href={href}
+      rel={rel}
+      {...stylex.props(styles.link, variant === "quiet" && styles.linkQuiet)}
+    >
       {children}
     </Link>
   );

@@ -43,10 +43,20 @@ const styles = stylex.create({
   ink: {
     color: colors.ink,
   },
+  link: {
+    textDecorationLine: {
+      default: "none",
+      ":hover": "underline",
+    },
+  },
   replyTo: {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
+    color: {
+      default: "inherit",
+      ":hover": colors.ink,
+    },
   },
   text: {
     marginTop: 4,
@@ -77,11 +87,14 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
       )}
       <div {...stylex.props(styles.main)}>
         <div {...stylex.props(styles.meta)}>
-          <span {...stylex.props(styles.ink)}>
+          <a href={item.url} {...stylex.props(styles.ink, styles.link)}>
             <Glyph name={glyphOf(item)} /> {labelOf(item)}
-          </span>
+          </a>
           {item.kind === "post" && item.replyTo && (
-            <span {...stylex.props(styles.replyTo)}>
+            <a
+              href={item.replyTo.url}
+              {...stylex.props(styles.replyTo, styles.link)}
+            >
               ↳ replying to
               {item.replyTo.kind === "self" ? (
                 <span {...stylex.props(styles.ink)}>
@@ -99,7 +112,7 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
                   </span>
                 </>
               )}
-            </span>
+            </a>
           )}
         </div>
         <div {...stylex.props(styles.text)}>

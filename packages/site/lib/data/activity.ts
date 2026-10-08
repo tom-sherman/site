@@ -156,10 +156,20 @@ function replyTo(
         ? parent.record.text
         : undefined);
     if (text?.trim()) {
-      return { kind: "self", quote: truncate(text, QUOTE_LENGTH) };
+      return {
+        kind: "self",
+        quote: truncate(text, QUOTE_LENGTH),
+        url: bskyUrl(uri),
+      };
     }
   }
-  return parent && { kind: "person", person: personOf(parent.author) };
+  return (
+    parent && {
+      kind: "person",
+      person: personOf(parent.author),
+      url: bskyUrl(uri),
+    }
+  );
 }
 
 function threadItem(

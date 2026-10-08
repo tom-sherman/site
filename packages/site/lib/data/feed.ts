@@ -48,9 +48,13 @@ export interface PostItem extends FeedItemBase {
   author: Person;
   text: string;
   likes: number;
-  /** Who it replies to, or for a reply to one of my own posts, how that post starts. */
-  replyTo?:
-    { kind: "person"; person: Person } | { kind: "self"; quote: string };
+  /**
+   * Who it replies to, or for a reply to one of my own posts, how that post
+   * starts; and where the post it replies to is.
+   */
+  replyTo?: { url: string } & (
+    { kind: "person"; person: Person } | { kind: "self"; quote: string }
+  );
 }
 
 export interface FilmRatingItem extends FeedItemBase {

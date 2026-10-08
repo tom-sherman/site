@@ -151,10 +151,12 @@ export function Feed({
                     key={entry.item.id}
                     marker="diamond"
                     gutter={
-                      <RelativeTime
-                        timestamp={entry.item.publishedAt}
-                        asOf={asOf}
-                      />
+                      <TextLink href={entry.item.url} variant="quiet">
+                        <RelativeTime
+                          timestamp={entry.item.publishedAt}
+                          asOf={asOf}
+                        />
+                      </TextLink>
                     }
                   >
                     <HighCard item={entry.item} />
@@ -166,10 +168,12 @@ export function Feed({
                     key={entry.item.id}
                     marker="ring"
                     gutter={
-                      <RelativeTime
-                        timestamp={entry.item.publishedAt}
-                        asOf={asOf}
-                      />
+                      <TextLink href={entry.item.url} variant="quiet">
+                        <RelativeTime
+                          timestamp={entry.item.publishedAt}
+                          asOf={asOf}
+                        />
+                      </TextLink>
                     }
                   >
                     <MediumRow item={entry.item} />
