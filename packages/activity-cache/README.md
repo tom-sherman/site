@@ -7,7 +7,7 @@ pnpm dev     # http://localhost:3001
 pnpm test
 ```
 
-Configuration comes from environment variables, then `.env` (gitignored, for local overrides and secrets). Under `pnpm dev`, the committed [`.env.development`](.env.development) fills in the rest: it points `OIDC_ISSUER` at the site's `next dev` server, so the service starts with no setup. `/activity` returns `503` until the site serves an OpenID provider.
+Configuration comes from environment variables, then `.env` (gitignored, for local overrides and secrets). Under `pnpm dev`, the committed [`.env.development`](.env.development) fills in the rest: it points `OIDC_ISSUER` at the site's `next dev` server, so the service starts with no setup. Run the site's `pnpm dev` too: `/activity` returns `503` while it's down, since the cache can't discover the site's keys.
 
 | env             | default                                  |
 | --------------- | ---------------------------------------- |

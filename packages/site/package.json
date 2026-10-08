@@ -7,13 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "generate-signing-key": "node scripts/generate-signing-key.mts"
   },
   "dependencies": {
     "@atproto/lex": "catalog:",
     "@repo/atproto-client": "workspace:*",
     "@stylexjs/atoms": "^0.19.1",
     "@stylexjs/stylex": "^0.19.1",
+    "jose": "^6.2.12",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
