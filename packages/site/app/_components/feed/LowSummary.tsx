@@ -1,47 +1,51 @@
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { Artwork } from "@/lib/components/Artwork";
-import { Glyph, type GlyphName } from "@/lib/components/Glyph";
+import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FeedItem } from "@/lib/data/feed";
 import type { Timestamp } from "@/lib/data/types";
-import { labelOf } from "@/lib/feed";
-import { formatMinutes } from "@/lib/time";
+import { glyphOf, labelOf } from "@/lib/feed";
 
 const styles = stylex.create({
   root: {
+    display: "grid",
+    rowGap: 6,
     paddingTop: 8,
     paddingBottom: 30,
     paddingLeft: 2,
   },
   summary: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.micro,
+    color: colors.subtle,
+  },
+  // A long label shrinks to fit rather than overflowing the line.
+  label: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  toggle: {
+    flexShrink: 0,
+    marginLeft: 8,
     appearance: "none",
     cursor: "pointer",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    rowGap: 4,
-    columnGap: 14,
     padding: 0,
     borderWidth: 0,
     backgroundColor: "transparent",
-    textAlign: "left",
-    fontFamily: fonts.mono,
-    fontSize: fontSizes.micro,
-    lineHeight: "inherit",
-    color: {
-      default: colors.subtle,
-      ":hover": colors.ink,
-    },
-  },
-  part: {
-    display: "flex",
-    gap: 6,
-  },
-  toggle: {
+    font: "inherit",
     color: colors.ink,
     textDecorationLine: "underline",
-    textDecorationColor: colors.underline,
+    textDecorationColor: {
+      default: colors.underline,
+      ":hover": "currentColor",
+    },
     textUnderlineOffset: 3,
   },
   list: {
@@ -82,9 +86,20 @@ const styles = stylex.create({
   },
 });
 
+/** Low-priority kinds, in the order their lines appear. */
+const KINDS = [
+  "track",
+  "game-session",
+  "episode",
+  "github",
+] as const satisfies FeedItem["kind"][];
+
+export type LowKind = (typeof KINDS)[number];
+
 /**
  * All of a day's passive activity (songs, games, episodes, GitHub events)
- * collapsed into one row: `♫ 14 tracks  ▶ Balatro 2h 14m  +19 more`.
+ * collapsed into one line per kind, each showing its newest item, e.g.
+ * `♫ Song — Artist +13 more`, and opening on its own to show them all.
  */
 export function LowSummary({
   items,
@@ -93,42 +108,71 @@ export function LowSummary({
   asOf,
 }: {
   items: FeedItem[];
-  open: boolean;
-  onToggle: () => void;
+  open: Readonly<Partial<Record<LowKind, boolean>>>;
+  onToggle: (kind: LowKind) => void;
   asOf: Timestamp;
 }) {
   return (
     <div {...stylex.props(styles.root)}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={onToggle}
-        {...stylex.props(styles.summary)}
-      >
-        {summarise(items).map(({ glyph, text }, i) => (
-          <span key={i} {...stylex.props(styles.part)}>
-            <Glyph name={glyph} />
-            <span>{text}</span>
-          </span>
-        ))}
-        <span {...stylex.props(styles.toggle)}>
-          {open ? "collapse" : `+${items.length} more`}
-        </span>
-      </button>
-      {open && (
-        <ul {...stylex.props(styles.list)}>
-          {items.map((item) => (
-            <li key={item.id} {...stylex.props(styles.item)}>
-              <span {...stylex.props(styles.time)}>
-                <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
-              </span>
-              <Swatch item={item} />
-              <span {...stylex.props(styles.text)}>{labelOf(item)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {KINDS.map((kind) => {
+        const ofKind = items.filter((i) => i.kind === kind);
+        if (!ofKind.length) return null;
+        const [newest] = ofKind;
+        return (
+          <div key={kind}>
+            <div {...stylex.props(styles.summary)}>
+              <Glyph name={glyphOf(newest)} />
+              <span {...stylex.props(styles.label)}>{labelOf(newest)}</span>
+              {ofKind.length > 1 && (
+                <Toggle open={!!open[kind]} onToggle={() => onToggle(kind)}>
+                  +{ofKind.length - 1} more
+                </Toggle>
+              )}
+            </div>
+            {open[kind] && ofKind.length > 1 && (
+              <ItemList items={ofKind} asOf={asOf} />
+            )}
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function Toggle({
+  open,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      {...stylex.props(styles.toggle)}
+    >
+      {open ? "collapse" : children}
+    </button>
+  );
+}
+
+function ItemList({ items, asOf }: { items: FeedItem[]; asOf: Timestamp }) {
+  return (
+    <ul {...stylex.props(styles.list)}>
+      {items.map((item) => (
+        <li key={item.id} {...stylex.props(styles.item)}>
+          <span {...stylex.props(styles.time)}>
+            <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
+          </span>
+          <Swatch item={item} />
+          <span {...stylex.props(styles.text)}>{labelOf(item)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -141,30 +185,4 @@ function Swatch({ item }: { item: FeedItem }) {
         : undefined;
   if (!art) return <span {...stylex.props(styles.swatch, styles.noArt)} />;
   return <Artwork image={art} variant="cover" style={styles.swatch} />;
-}
-
-function summarise(items: FeedItem[]) {
-  const parts: { glyph: GlyphName; text: string }[] = [];
-  const count = (kind: FeedItem["kind"]) =>
-    items.filter((i) => i.kind === kind).length;
-  const plural = (n: number, word: string) =>
-    `${n} ${word}${n === 1 ? "" : "s"}`;
-
-  const tracks = count("track");
-  if (tracks) parts.push({ glyph: "music", text: plural(tracks, "track") });
-  for (const item of items) {
-    if (item.kind === "game-session") {
-      parts.push({
-        glyph: "games",
-        text: `${item.title} ${formatMinutes(item.minutes)}`,
-      });
-    }
-  }
-  const episodes = count("episode");
-  if (episodes) {
-    parts.push({ glyph: "film", text: plural(episodes, "episode") });
-  }
-  const github = count("github");
-  if (github) parts.push({ glyph: "code", text: `${github} on GitHub` });
-  return parts;
 }

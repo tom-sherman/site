@@ -27,7 +27,7 @@ import {
 import { dayNumber, formatDayLabel, formatShortDate } from "@/lib/time";
 import { useNow } from "@/lib/use-now";
 import { HighCard } from "./HighCard";
-import { LowSummary } from "./LowSummary";
+import { LowSummary, type LowKind } from "./LowSummary";
 import { MediumRow } from "./MediumRow";
 
 const styles = stylex.create({
@@ -94,7 +94,9 @@ export function Feed({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   // Keyed by day so a group stays open across filter changes.
-  const [openDays, setOpenDays] = useState<Record<number, boolean>>({});
+  const [openDays, setOpenDays] = useState<
+    Record<number, Partial<Record<LowKind, boolean>>>
+  >({});
   const now = useNow(asOf, 60_000);
 
   const visible =
@@ -193,9 +195,15 @@ export function Feed({
                   >
                     <LowSummary
                       items={entry.items}
-                      open={!!openDays[day]}
-                      onToggle={() =>
-                        setOpenDays({ ...openDays, [day]: !openDays[day] })
+                      open={openDays[day] ?? {}}
+                      onToggle={(kind) =>
+                        setOpenDays({
+                          ...openDays,
+                          [day]: {
+                            ...openDays[day],
+                            [kind]: !openDays[day]?.[kind],
+                          },
+                        })
                       }
                       asOf={asOf}
                     />
