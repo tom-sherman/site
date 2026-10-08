@@ -1,0 +1,134 @@
+{
+  "lexicon": 1,
+  "id": "games.atmosphere.status",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A time-bounded declaration of live game activity, one per account.\n\nActive sessions should update staleAt regularly (e.g. every 5–15 minutes). Consumers must treat records as abandoned when now > staleAt.\n\nApplications must obtain explicit owner consent before publishing presence, and respect player privacy and covert play preferences.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": [
+          "game",
+          "createdAt",
+          "staleAt"
+        ],
+        "properties": {
+          "game": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI reference to the game definition record (e.g. games.atmosphere.define or games.gamesgamesgamesgames.game)."
+          },
+          "platform": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Optional AT-URI reference to a platform record (e.g. games.gamesgamesgamesgames.platform). Not bound to any single namespace by the schema itself; the referenced collection may change over time without requiring a Lexicon revision here."
+          },
+          "state": {
+            "type": "string",
+            "maxGraphemes": 128,
+            "maxLength": 1280,
+            "description": "Human-readable summary of the current session (e.g. 'Daily Challenge', 'Ranked Match')."
+          },
+          "details": {
+            "type": "ref",
+            "ref": "#details",
+            "description": "Detailed task, event, or countdown progress within the session."
+          },
+          "playing": {
+            "type": "ref",
+            "ref": "#playing",
+            "description": "Multiplayer or party details. Presence indicates active playing rather than passive watching."
+          },
+          "embed": {
+            "type": "ref",
+            "ref": "app.bsky.embed.external",
+            "description": "External card embed for rich social feed rendering."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Beginning of the overall play session."
+          },
+          "staleAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Timestamp after which consumers should consider this activity abandoned."
+          },
+          "via": {
+            "type": "string",
+            "maxGraphemes": 64,
+            "maxLength": 640,
+            "description": "Identifier for the client or launcher managing this record (e.g. atmosphere.games)."
+          }
+        }
+      }
+    },
+    "details": {
+      "type": "object",
+      "description": "Progress or event details for the current session.",
+      "properties": {
+        "event": {
+          "type": "string",
+          "maxGraphemes": 128,
+          "maxLength": 1280,
+          "description": "Name of the ongoing event or task (e.g. 'Level 5-2', 'Turn 14 of 20')."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Start timestamp of the current event, used for count-up displays."
+        },
+        "endsAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "End timestamp of the current event, used for count-down displays."
+        }
+      }
+    },
+    "playing": {
+      "type": "object",
+      "description": "Multiplayer party and lobby information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Unique session identifier shared across all participants in the party."
+        },
+        "party": {
+          "type": "ref",
+          "ref": "#party",
+          "description": "Party size and member information."
+        }
+      }
+    },
+    "party": {
+      "type": "object",
+      "required": [
+        "current"
+      ],
+      "description": "Party capacity and participant identity list.",
+      "properties": {
+        "current": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of players currently in the party."
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum party capacity limit."
+        },
+        "dids": {
+          "type": "array",
+          "minLength": 1,
+          "items": {
+            "type": "string",
+            "format": "did"
+          },
+          "description": "DIDs of players in the party who have AT Protocol accounts."
+        }
+      }
+    }
+  }
+}

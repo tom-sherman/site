@@ -2,9 +2,11 @@
 
 Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.dev/package/@atproto/lex).
 
-Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.feed.play`
+Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.actor.status`, `fm.teal.feed.play`
 
 Authored here: `is.sherman.unspecced.thread` (see [Our own lexicons](#our-own-lexicons))
+
+Vendored: `games.atmosphere.status` (see [Vendored lexicons](#vendored-lexicons))
 
 ## Usage
 
@@ -100,8 +102,14 @@ They're unspecced: records only this site reads, so the lexicons aren't publishe
 
 - `is.sherman.unspecced.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
 
+### Vendored lexicons
+
+Some third-party lexicons aren't published where `lex install` can resolve them, so they're copied in by hand. Like our own lexicons, they aren't in `lexicons.json`, so `lex install` leaves them alone; export their namespace from `src/index.ts`.
+
+- `games.atmosphere.status`: live game presence. Copied from https://atmosphere.games/lexicons/games.atmosphere.status.json (source: https://tangled.org/atmosphere.games/lexicons). It's still a draft, so re-copy it when it changes.
+
 ### Notes
 
-- `lexicons.json` lists only the lexicons you asked for, but `lexicons/` also contains everything they reference (embeds, actor defs, etc.). Don't edit either by hand, apart from our own lexicons above.
+- `lexicons.json` lists only the lexicons you asked for, but `lexicons/` also contains everything they reference (embeds, actor defs, etc.). Don't edit either by hand, apart from our own and vendored lexicons above.
 - Both are in the root `.prettierignore` because `lex install` rewrites them in its own format.
 - Don't edit anything under `src/lexicons/`; it's wiped on every build.

@@ -18,6 +18,9 @@ const styles = stylex.create({
     letterSpacing: "0.08em",
     textTransform: "uppercase",
   },
+  tagInactive: {
+    backgroundColor: colors.muted,
+  },
   tagSm: {
     paddingBlock: 2,
     paddingInline: 6,
@@ -77,17 +80,26 @@ const styles = stylex.create({
   },
 });
 
-/** Accent label: the NOW and PINNED tags. The accent goes nowhere else. */
+/**
+ * Accent label: the NOW and PINNED tags. The accent goes nowhere else.
+ * `inactive` greys it out, e.g. NOW turning into OFFLINE.
+ */
 export function Tag({
   size = "sm",
+  tone = "active",
   children,
 }: {
   size?: "sm" | "md";
+  tone?: "active" | "inactive";
   children: ReactNode;
 }) {
   return (
     <span
-      {...stylex.props(styles.tag, size === "sm" ? styles.tagSm : styles.tagMd)}
+      {...stylex.props(
+        styles.tag,
+        tone === "inactive" && styles.tagInactive,
+        size === "sm" ? styles.tagSm : styles.tagMd,
+      )}
     >
       {children}
     </span>

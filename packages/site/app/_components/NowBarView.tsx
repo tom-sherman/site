@@ -1,14 +1,21 @@
 "use client";
 
 import * as stylex from "@stylexjs/stylex";
-import { Activity, startTransition, useState, ViewTransition } from "react";
+import {
+  Activity,
+  Fragment,
+  type ReactNode,
+  startTransition,
+  useState,
+  ViewTransition,
+} from "react";
 import { Artwork } from "@/lib/components/Artwork";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Tag } from "@/lib/components/Text";
 import { breakpoints, colors, layout } from "@/lib/components/tokens.stylex";
 import type { NowActivity, NowStatus } from "@/lib/data/now";
 import { GLYPHS } from "@/lib/feed";
-import { formatClock, formatMinutes } from "@/lib/time";
+import { formatClock, formatMinutes, formatTimestamp } from "@/lib/time";
 import { useNow } from "@/lib/use-now";
 import { NowBarShell } from "./NowBarShell";
 
@@ -81,6 +88,10 @@ const styles = stylex.create({
   art: {
     width: 22,
     height: 22,
+    // Keeps dark artwork from disappearing into the bar.
+    outlineWidth: 1,
+    outlineStyle: "solid",
+    outlineColor: colors.inkBorder,
   },
   activity: {
     flexGrow: 1,
@@ -96,6 +107,14 @@ const styles = stylex.create({
   },
   title: {
     fontWeight: 500,
+  },
+  link: {
+    color: "inherit",
+    textDecorationLine: {
+      default: "none",
+      ":hover": "underline",
+    },
+    cursor: "pointer",
   },
   track: {
     display: {
@@ -157,25 +176,48 @@ const VERBS: Record<NowActivity["kind"], string> = {
   playing: "Playing",
 };
 
-export function NowBarView({ status }: { status: NowStatus }) {
+const PAST_VERBS: Record<NowActivity["kind"], string> = {
+  listening: "Listened to",
+  playing: "Played",
+};
+
+/**
+ * When an activity with a known length (a song) ran out. The data only
+ * refreshes on navigation, so the bar works out for itself that it's over
+ * rather than sitting at 100%. Probably something else is playing by then, but
+ * all we know is that this finished.
+ */
+function endedAt(activity: NowActivity, now: number): number | null {
+  if (activity.durationSeconds === null) return null;
+  const end = activity.startedAt + activity.durationSeconds * 1000;
+  return now >= end ? end : null;
+}
+
+export function NowBarView({
+  status,
+  renderedAt,
+}: {
+  status: NowStatus;
+  /** The server's clock when this rendered, used until hydration. */
+  renderedAt: number;
+}) {
   const [index, setIndex] = useState(0);
-  const now = useNow(status.lastSeenAt, 1000);
+  const now = useNow(renderedAt, 1000);
   const { activities } = status;
 
   if (!activities.length) {
     return (
       <NowBarShell>
-        <Tag size="md">
+        <Tag size="md" tone="inactive">
           <span {...stylex.props(styles.dot)} />
-          Now
+          Offline
         </Tag>
-        <span {...stylex.props(styles.activity)}>
-          <span {...stylex.props(styles.dim)}>Offline — last seen </span>
-          <RelativeTime
-            timestamp={status.lastSeenAt}
-            asOf={status.lastSeenAt}
-          />
-        </span>
+        {status.lastSeenAt !== null && (
+          <span {...stylex.props(styles.activity)}>
+            <span {...stylex.props(styles.dim)}>Last seen </span>
+            <RelativeTime timestamp={status.lastSeenAt} asOf={renderedAt} />
+          </span>
+        )}
       </NowBarShell>
     );
   }
@@ -222,16 +264,35 @@ function ActivityFace({
 }) {
   const elapsed = Math.max(0, Math.floor((now - activity.startedAt) / 1000));
   const duration = activity.durationSeconds;
+  const ended = endedAt(activity, now);
 
   return (
     <div {...stylex.props(styles.face)}>
       <Artwork image={activity.art} variant="cover" style={styles.art} />
       <span {...stylex.props(styles.activity)}>
-        <span {...stylex.props(styles.dim)}>{VERBS[activity.kind]} </span>
-        <span {...stylex.props(styles.title)}>{activity.title}</span>
-        <span {...stylex.props(styles.dim)}> — {activity.subtitle}</span>
+        <span {...stylex.props(styles.dim)}>
+          {(ended === null ? VERBS : PAST_VERBS)[activity.kind]}{" "}
+        </span>
+        <span {...stylex.props(styles.title)}>
+          <MaybeLink url={activity.url}>{activity.title}</MaybeLink>
+        </span>
+        {activity.subtitle.length > 0 && (
+          <span {...stylex.props(styles.dim)}>
+            {" — "}
+            {activity.subtitle.map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && ", "}
+                <MaybeLink url={part.url}>{part.text}</MaybeLink>
+              </Fragment>
+            ))}
+          </span>
+        )}
       </span>
-      {duration === null ? (
+      {ended !== null ? (
+        <span {...stylex.props(styles.elapsed)}>
+          {formatTimestamp(ended, now)}
+        </span>
+      ) : duration === null ? (
         <span {...stylex.props(styles.elapsed)}>
           {formatMinutes(Math.floor(elapsed / 60))}
         </span>
@@ -255,5 +316,14 @@ function ActivityFace({
         </>
       )}
     </div>
+  );
+}
+
+function MaybeLink({ url, children }: { url?: string; children: ReactNode }) {
+  if (!url) return children;
+  return (
+    <a href={url} {...stylex.props(styles.link)}>
+      {children}
+    </a>
   );
 }

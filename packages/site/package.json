@@ -10,6 +10,8 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@atproto/lex": "catalog:",
+    "@repo/atproto-client": "workspace:*",
     "@stylexjs/atoms": "^0.19.1",
     "@stylexjs/stylex": "^0.19.1",
     "next": "16.3.8",

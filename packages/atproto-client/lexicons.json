@@ -4,6 +4,7 @@
     "app.bsky.feed.post",
     "com.atproto.sync.getLatestCommit",
     "com.atproto.sync.getRepo",
+    "fm.teal.actor.status",
     "fm.teal.feed.play"
   ],
   "resolutions": {
@@ -122,6 +123,10 @@
     "com.atproto.sync.getRepo": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getRepo",
       "cid": "bafyreieyt5x6wf4pgcn56tb2724uplmwcqjivkubmi25km3xrvroz6dw5q"
+    },
+    "fm.teal.actor.status": {
+      "uri": "at://did:plc:iwhuynr6mm6xxuh25o4do2tx/com.atproto.lexicon.schema/fm.teal.actor.status",
+      "cid": "bafyreigml4bzz2oepwteezakxaoka6zqbzvbe2x2flxj7yqkmbob5w6gw4"
     },
     "fm.teal.feed.defs": {
       "uri": "at://did:plc:iwhuynr6mm6xxuh25o4do2tx/com.atproto.lexicon.schema/fm.teal.feed.defs",

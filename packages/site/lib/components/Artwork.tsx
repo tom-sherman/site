@@ -31,13 +31,17 @@ const styles = stylex.create({
   cover: (hue: number) => ({
     backgroundColor: `oklch(0.8 0.12 ${hue})`,
   }),
+  image: {
+    objectFit: "cover",
+  },
 });
 
 type Variant = "photo" | "poster" | "cover";
 
 /**
- * Media placeholder. Photos and posters show a small caption describing what
- * will go there; covers are just a swatch.
+ * An image, or a placeholder when it has no `url`. Placeholder photos and
+ * posters show a small caption describing what will go there; covers are just
+ * a swatch.
  */
 export function Artwork({
   image,
@@ -65,8 +69,25 @@ export function Artwork({
     borderBottomWidth?: number | string;
     borderBottomStyle?: "solid";
     borderBottomColor?: number | string;
+    outlineWidth?: number | string;
+    outlineStyle?: "solid";
+    outlineColor?: number | string;
   }>;
 }) {
+  if (image.url) {
+    return (
+      // Remote art that's already small and on a CDN, so not run through
+      // next/image's optimizer.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image.url}
+        alt={image.alt}
+        loading="lazy"
+        {...stylex.props(styles.artwork, styles.image, style)}
+      />
+    );
+  }
+
   const hue = image.hue ?? 0;
   return (
     <span

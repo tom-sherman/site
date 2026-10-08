@@ -1,9 +1,10 @@
 /**
- * Every image on the page is a placeholder until real assets exist. `hue`
- * tints the placeholder; when omitted the accent is used (Tom's avatar).
+ * An image, or a placeholder where there's no `url` yet. `hue` tints the
+ * placeholder; when omitted the accent is used (Tom's avatar).
  */
 export interface ImageRef {
   alt: string;
+  url?: string;
   hue?: number;
 }
 
