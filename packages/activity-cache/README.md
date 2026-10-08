@@ -92,6 +92,13 @@ For atproto that's [Jetstream](https://github.com/bluesky-social/jetstream) (v2,
 
 Resuming makes Jetstream scan everything since the cursor for the DID's events, at very roughly an hour of firehose a minute, so a restart after a long outage takes a while to catch up. The SDK's idle timeout is off: a stream filtered to one account goes quiet for hours, and redialling every minute would restart that scan every time. Node's WebSocket pings already detect dead connections.
 
+**Why not Jetstream's archive?** Jetstream v2 also keeps an archive of the whole network, which `replay()` can backfill from, so after an outage the stream could catch up instead of the source rebuilding. But we only follow one repo, and it's simpler to download it and filter it:
+
+- **Export:** one unauthenticated request to the PDS (~6MB, about a second for ~12k records). It's the repo's exact current state, so deletes, edits and resets (`#sync`) are already accounted for, and taking the last 30 days is a filter.
+- **Archive:** needs an API token. Downloads are planned in blocks shared with everyone else's events, filtered client-side, so likely more bytes than one account's export. It's addressed by seq rather than time, so "30 days ago" has no direct way in. And it's a history of events to fold, which still can't explain a reset.
+
+Worth revisiting if the repo grows to hundreds of MBs and the export gets slow.
+
 ### Roll-ups
 
 Some activity is better shown as one item, like a Bluesky thread I want to call out as writing. A source can say so per record, so snapshots and realtime writes need nothing extra:
