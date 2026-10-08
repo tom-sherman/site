@@ -100,12 +100,14 @@ export class Store extends Context.Service<
     ) => Effect.Effect<void>;
     /**
      * Atomically swaps a source's rows for a snapshot (plus realtime mutations
-     * that arrived while it was fetched) and marks the source fresh.
+     * that arrived while it was fetched) and marks the source fresh. With
+     * `keepExisting`, rows missing from the snapshot are kept.
      */
     readonly replaceSource: (
       source: string,
       replacement: {
         readonly activities: ReadonlyArray<Activity>;
+        readonly keepExisting: boolean;
         readonly mutations: ReadonlyArray<Mutation>;
         readonly fingerprint: string;
         readonly checkpoint: string | undefined;
@@ -303,6 +305,7 @@ export class Store extends Context.Service<
         source: string,
         replacement: {
           readonly activities: ReadonlyArray<Activity>;
+          readonly keepExisting: boolean;
           readonly mutations: ReadonlyArray<Mutation>;
           readonly fingerprint: string;
           readonly checkpoint: string | undefined;
@@ -311,7 +314,9 @@ export class Store extends Context.Service<
         },
       ) =>
         Effect.gen(function* () {
-          yield* sql`DELETE FROM activity WHERE source = ${source}`;
+          if (!replacement.keepExisting) {
+            yield* sql`DELETE FROM activity WHERE source = ${source}`;
+          }
           yield* upsert(source, replacement.activities);
           yield* applyMutations(source, replacement.mutations);
           yield* sql`

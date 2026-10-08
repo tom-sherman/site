@@ -66,11 +66,15 @@ A refresh swaps the source's rows in one transaction, so reads see the old rows 
 
 1. Start buffering the source's realtime mutations, **before** asking it for a snapshot. Realtime writes keep going to the table as well.
 2. Fetch the snapshot. Rows and other sources keep serving meanwhile.
-3. In one transaction: delete the source's rows, insert the snapshot, replay the buffer, update `source_state`.
+3. In one transaction: delete the source's rows (unless it's [append-only](#append-only-sources)), insert the snapshot, replay the buffer, update `source_state`.
 
 Every change ends up in the snapshot, the buffer, or both. Replaying upserts and deletes in order is idempotent, so being in both is fine. A failed or interrupted refresh leaves the rows alone.
 
 A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and lets sources refill.
+
+### Append-only sources
+
+Some upstreams never delete anything, but only serve their latest items: GitHub serves at most 300 events. A source that sets `appendOnly` has its snapshots merged into its rows instead of replacing them, so what drops out of upstream's window stays until it's older than the retention window. A rebuild (fingerprint change) still replaces them, since the old rows were built with the old mapping; anything upstream no longer serves is lost then.
 
 ### Roll-ups
 
@@ -85,7 +89,7 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 `src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it.
 
-- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the latest 300 events, so a busy month may be cut short. Events that shift onto the next page while paging are deduplicated.
+- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the latest 300 events, so the source is [append-only](#append-only-sources): events that drop out are kept until they're 30 days old. Events that shift onto the next page while paging are deduplicated.
 - **Token.** `GITHUB_TOKEN` is optional; any token works, it needs no scopes. Without one, GitHub allows 60 requests an hour per IP and even a `304` counts, so the source polls at most every 5 minutes instead of at `X-Poll-Interval` (usually 60s). With one, `304`s are free.
 - **Rate limits.** A `403`/`429` with `Retry-After`, or with `X-RateLimit-Remaining: 0` and `X-RateLimit-Reset`, becomes the source's next attempt time.
 
@@ -93,6 +97,6 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 **atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
+**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits.
 
 Realtime sources call `ActivityCache.apply(source, mutations)`. For atproto that should go through `CollectionHandler.toActivity`, the same mapping snapshots use.

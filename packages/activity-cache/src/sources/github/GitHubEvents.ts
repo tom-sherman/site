@@ -267,6 +267,8 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
     return {
       name: "github",
       fingerprint: [`user=${user}`, `version=${VERSION}`].join(";"),
+      // Events are never deleted, but GitHub only serves the latest 300.
+      appendOnly: true,
       snapshot,
     } satisfies Source;
   },

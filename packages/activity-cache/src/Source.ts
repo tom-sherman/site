@@ -57,7 +57,16 @@ export interface Source {
    */
   readonly fingerprint: string;
   /**
-   * Everything since `since`. Given the checkpoint from the last snapshot,
+   * Upstream never deletes anything, but stops serving older items (GitHub
+   * only serves the latest 300 events). Snapshots are then merged into the
+   * stored rows rather than replacing them, so what falls out of upstream's
+   * window stays until it's older than the retention window. A rebuild
+   * (fingerprint change) still replaces them.
+   */
+  readonly appendOnly?: boolean | undefined;
+  /**
+   * Everything since `since`; for an append-only source, everything upstream
+   * still serves since then. Given the checkpoint from the last snapshot,
    * a source can cheaply report `Unchanged` instead (a repo rev, an ETag, …).
    * Must be safe to run while realtime mutations for the source are flowing.
    */

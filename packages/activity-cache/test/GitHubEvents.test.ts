@@ -245,6 +245,7 @@ describe("GitHubEvents", () => {
         Effect.provide(mockNetwork(servePages).layer),
       );
       assert.strictEqual(source.name, "github");
+      assert.isTrue(source.appendOnly);
       assert.strictEqual(source.fingerprint, `user=${USER};version=1`);
     }),
   );
