@@ -12,6 +12,7 @@ import {
 } from "../../jetstream/Jetstream.ts";
 import {
   Change,
+  CursorStore,
   type Source,
   SourceError,
   SnapshotResult,
@@ -189,65 +190,69 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
             yield* Effect.logInfo(`Jetstream: ${event.name}`, event.message);
             return undefined;
           case "commit": {
-            const cursor = String(event.seq);
-            if (event.did !== did) return Change.batch([], cursor);
+            if (event.did !== did) return undefined;
             const mutation = yield* commitMutation(event.commit);
             // Every commit moves the checkpoint on, including ones to
             // collections that aren't cached, or hourly checks would always
             // see a newer rev and download the repo.
-            return Change.batch(
-              mutation ? [mutation] : [],
-              cursor,
-              event.commit.rev,
-            );
+            return Change.batch(mutation ? [mutation] : [], event.commit.rev);
           }
           case "sync":
             // The repo was reset (e.g. a PDS migration), so its commits no
             // longer describe how it got to where it is.
-            return event.did === did
-              ? Change.gap(String(event.seq))
-              : Change.batch([], String(event.seq));
+            return event.did === did ? Change.gap() : undefined;
           case "identity":
           case "account":
-            return Change.batch([], String(event.seq));
+            return undefined;
         }
       });
 
-    const follow = (cursor: number): Stream.Stream<Change, JetstreamError> =>
-      jetstream.subscribe({ dids: [did], cursor }).pipe(
-        Stream.mapEffect(toChange),
-        Stream.filter((change) => change !== undefined),
-        Stream.catchTag("CursorTooOld", (error) =>
-          Stream.unwrap(
-            Effect.logWarning(error.message).pipe(Effect.as(fromNow)),
-          ),
-        ),
-      );
-
-    /** Starts over from (just before) now, announcing what's been missed. */
-    const fromNow: Stream.Stream<Change, JetstreamError> = Stream.unwrap(
-      Effect.gen(function* () {
-        const now = yield* Clock.currentTimeMillis;
-        const cursor = timestampCursor(now - Duration.toMillis(CLOCK_SKEW));
-        return Stream.concat(
-          Stream.succeed(Change.gap(String(cursor))),
-          follow(cursor),
-        );
-      }),
-    );
-
     /**
-     * Commits from Jetstream, filtered to this DID server-side. Cursors are
-     * Jetstream seqs, or a timestamp cursor until the first event arrives.
+     * Follows Jetstream, filtered to this DID server-side. The cursor is the
+     * last event's seq, or a timestamp cursor until the first event after
+     * starting over arrives. Each is saved only after `apply` succeeds for
+     * its event, so nothing is skipped if this stops in between.
      */
-    const changes = ({ cursor }: { readonly cursor: string | undefined }) => {
-      const seq = Number(cursor);
-      return (
-        cursor !== undefined && Number.isSafeInteger(seq)
-          ? follow(seq)
-          : fromNow
-      ).pipe(
-        Stream.mapError(
+    const follow = (apply: (change: Change) => Effect.Effect<void>) =>
+      Effect.gen(function* () {
+        const cursors = yield* CursorStore;
+
+        /** Announces what's been missed, then resumes from just before now. */
+        const startOver = Effect.gen(function* () {
+          yield* apply(Change.gap());
+          const now = yield* Clock.currentTimeMillis;
+          const cursor = timestampCursor(now - Duration.toMillis(CLOCK_SKEW));
+          yield* cursors.save(String(cursor));
+          return cursor;
+        });
+
+        const followFrom = (
+          cursor: number,
+        ): Effect.Effect<void, JetstreamError> =>
+          jetstream.subscribe({ dids: [did], cursor }).pipe(
+            Stream.runForEach((event) =>
+              Effect.gen(function* () {
+                const change = yield* toChange(event);
+                if (change) yield* apply(change);
+                if (event.kind !== "info") {
+                  yield* cursors.save(String(event.seq));
+                }
+              }),
+            ),
+            Effect.catchTag("CursorTooOld", (error) =>
+              Effect.logWarning(error.message).pipe(
+                Effect.andThen(startOver),
+                Effect.flatMap(followFrom),
+              ),
+            ),
+          );
+
+        const saved = Number(yield* cursors.load);
+        yield* followFrom(
+          Number.isSafeInteger(saved) ? saved : yield* startOver,
+        );
+      }).pipe(
+        Effect.mapError(
           (cause) =>
             new SourceError({
               source: "atproto",
@@ -255,9 +260,8 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
               cause,
             }),
         ),
-        Stream.withSpan("AtprotoRepo.changes"),
+        Effect.withSpan("AtprotoRepo.follow"),
       );
-    };
 
     return {
       name: "atproto",
@@ -269,7 +273,7 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
           .join(",")}`,
       ].join(";"),
       snapshot,
-      changes,
+      follow,
     } satisfies Source;
   },
 );

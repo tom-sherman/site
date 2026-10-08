@@ -50,7 +50,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 Two tables:
 
 - `activity`: `source`, `id` (at-uri for atproto, `github:<event id>` for GitHub), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
-- `source_state`: one row per source with its fingerprint, last refresh, checkpoint, stream cursor and backoff. It's what lets a restart pick up where the last process left off.
+- `source_state`: one row per source with its fingerprint, last refresh, checkpoint, realtime cursor and backoff. It's what lets a restart pick up where the last process left off.
 
 The data is disposable, but the store is durable: a restart serves what's there and doesn't call upstream until something is due.
 
@@ -79,12 +79,14 @@ Some upstreams never delete anything, but only serve their latest items: GitHub 
 
 ### Realtime
 
-A source can also offer a stream of changes (`Source.changes`), which the cache follows for as long as it runs. The source turns upstream events into changes, and the cache does the writing, so the two can't drift apart:
+A source can also follow upstream in realtime (`Source.follow`), which the cache runs for as long as it runs. The source turns upstream events into changes and hands each to an `apply` function from the cache, which does the writing, so the two can't drift apart:
 
-- **Batch:** mutations (possibly none), the stream's cursor, and optionally the checkpoint they bring the rows up to. All of it is written in one transaction, so a restart resumes right after the last change written.
+- **Batch:** mutations (possibly none), and optionally the checkpoint they bring the rows up to, written in one transaction.
 - **Gap:** changes may have been missed. The rows are marked stale (fingerprint and checkpoint cleared), so the next refresh is a rebuild, and it happens now rather than when it's next due (backoff still applies). If a gap happens while a refresh is in flight, its snapshot may predate what was missed: it's swapped in, but the source stays stale and rebuilds again.
-- A stream opened without a cursor starts with a gap: whatever happened before it is only in the next snapshot.
-- When the stream fails, it's reopened from the last cursor, backing off like refreshes do (30s, doubling up to 1h) until it delivers again.
+
+Where the source is upstream is its own business: it loads and saves its cursor through a `CursorStore` the cache provides (stored in `source_state`, opaque to the cache). The rule is the one `PersistedQueue` and the Jetstream SDK's runner follow: save a cursor only after `apply` succeeds for everything before it. A crash in between replays changes, which is harmless because they're idempotent; saving first could skip them. Likewise, a source with no usable cursor applies a gap before saving where it starts from: whatever happened before then is only in the next snapshot.
+
+When `follow` fails, the cache runs it again, backing off like refreshes do (30s, doubling up to 1h) until it applies something again.
 
 For atproto that's [Jetstream](https://github.com/bluesky-social/jetstream) (v2, via `@bsky/jetstream`, wrapped as an Effect service in `src/jetstream/Jetstream.ts`), filtered to the DID. Commits are mapped by the same `CollectionHandler`s snapshots use, and every commit moves the checkpoint to its `rev`, including commits to collections that aren't cached. A seq cursor older than Jetstream keeps (about a day and a half), a clamped timestamp cursor, or a `#sync` (the repo was reset) is a gap. Starting over uses a timestamp cursor from a minute before now, to allow for clock skew.
 
@@ -112,4 +114,4 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 **atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `changes({ cursor })` returning a stream of [changes](#realtime), mapped the same way snapshots are.
+**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `follow(apply)`, [applying changes](#realtime) mapped the same way snapshots are.

@@ -8,11 +8,11 @@ import {
   Queue,
   Schedule,
   Semaphore,
-  Stream,
 } from "effect";
 import { type ActivityItem, type Mutation, RETENTION_MS } from "./Activity.ts";
 import {
   type Change,
+  CursorStore,
   type Source,
   type SourceError,
   Sources,
@@ -52,11 +52,13 @@ const fingerprintOf = (source: Source) =>
  * before the snapshot is requested, so every change is in the snapshot, the
  * buffer, or both (replaying upserts/deletes in order is idempotent).
  *
- * Realtime sources' streams are followed for as long as the cache runs, each
- * change written together with the stream's cursor. A `Gap` marks the rows
- * stale (so the next refresh is a rebuild) and wakes the source's scheduler.
- * A gap during a refresh taints it: its snapshot may predate what was missed,
- * so it's swapped in but the source stays stale and refreshes again.
+ * Realtime sources are followed for as long as the cache runs: they hand
+ * each change to the cache to write, and keep their own cursor
+ * (`CursorStore`), saved once what came before it is written. A `Gap` marks
+ * the rows stale (so the next refresh is a rebuild) and wakes the source's
+ * scheduler. A gap during a refresh taints it: its snapshot may predate what
+ * was missed, so it's swapped in but the source stays stale and refreshes
+ * again.
  */
 export class ActivityCache extends Context.Service<
   ActivityCache,
@@ -123,11 +125,11 @@ export class ActivityCache extends Context.Service<
             const buffer = buffers.get(source);
             if (change._tag === "Batch") {
               buffer?.mutations.push(...change.mutations);
-              yield* store.write(source, change.mutations, change);
+              yield* store.write(source, change.mutations, change.checkpoint);
               return;
             }
             if (buffer) buffer.tainted = true;
-            yield* store.markStale(source, change.cursor);
+            yield* store.markStale(source);
             Queue.offerUnsafe(wakeups.get(source)!, undefined);
             yield* Effect.logInfo("Changes may have been missed; rebuilding");
           }),
@@ -272,33 +274,38 @@ export class ActivityCache extends Context.Service<
         }).pipe(Effect.annotateLogs({ source: source.name }));
 
       /**
-       * Follows a realtime source's stream, reopening it from the last
-       * persisted cursor when it fails (or ends). The stream reconnects by
-       * itself through transient trouble, so what reaches here backs off like
-       * a failed refresh, starting over once the stream delivers again.
+       * Runs a realtime source's `follow`, again whenever it fails (or ends).
+       * Sources reconnect by themselves through transient trouble, so what
+       * reaches here backs off like a failed refresh, starting over once the
+       * source applies something again.
        */
       const follow = (source: Source) =>
         Effect.gen(function* () {
-          const changes = source.changes;
-          if (!changes) return;
+          if (!source.follow) return;
+          const cursors = CursorStore.of({
+            load: store
+              .sourceState(source.name)
+              .pipe(Effect.map((state) => state.cursor ?? undefined)),
+            save: (cursor) => store.saveCursor(source.name, cursor),
+          });
           let failures = 0;
           while (true) {
-            const { cursor } = yield* store.sourceState(source.name);
-            const exit = yield* changes({ cursor: cursor ?? undefined }).pipe(
-              Stream.runForEach((change) => {
+            const exit = yield* source
+              .follow((change) => {
                 failures = 0;
                 return applyChange(source.name, change);
-              }),
-              Effect.exit,
-            );
+              })
+              .pipe(Effect.provideService(CursorStore, cursors), Effect.exit);
             failures++;
             const wait = backoff(failures);
             yield* Exit.isFailure(exit)
               ? Effect.logWarning(
-                  `Stream failed; reopening in ${wait / 1000}s`,
+                  `Following failed; restarting in ${wait / 1000}s`,
                   exit.cause,
                 )
-              : Effect.logWarning(`Stream ended; reopening in ${wait / 1000}s`);
+              : Effect.logWarning(
+                  `Following ended; restarting in ${wait / 1000}s`,
+                );
             yield* Effect.sleep(wait);
           }
         }).pipe(Effect.annotateLogs({ source: source.name }));

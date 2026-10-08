@@ -114,8 +114,6 @@ export class Jetstream extends Context.Service<
               // the SDK is between events; they're flushed in order below.
               const infos: Array<JetstreamInfo> = [];
               const skipped: Array<Error> = [];
-              // Where the SDK resumes from when it reconnects.
-              let position = subscription.cursor;
               const start = subscription.cursor;
 
               const events = client.live({
@@ -124,6 +122,8 @@ export class Jetstream extends Context.Service<
                 collections: subscription.collections as
                   Array<NsidString> | undefined,
                 kinds: subscription.kinds && [...subscription.kinds],
+                // live() only ever loads from its cursor store (saving is the
+                // SDK runner's job), so this just hands it the start.
                 cursor:
                   start === undefined
                     ? undefined
@@ -158,11 +158,15 @@ export class Jetstream extends Context.Service<
                 while (true) {
                   const next = yield* Effect.tryPromise({
                     try: () => events.next(),
+                    // Only a seq cursor can be refused for being too old (a
+                    // timestamp one is clamped instead). If a reconnect after
+                    // a long outage is refused, this is a plain error, and
+                    // resubscribing from the last seq is then refused here.
                     catch: (cause) =>
-                      position !== undefined &&
-                      position < TIMESTAMP_CURSOR_MIN &&
+                      start !== undefined &&
+                      start < TIMESTAMP_CURSOR_MIN &&
                       isHandshake400(cause)
-                        ? new CursorTooOld({ cursor: position })
+                        ? new CursorTooOld({ cursor: start })
                         : new JetstreamError({
                             message:
                               cause instanceof Error
@@ -173,7 +177,6 @@ export class Jetstream extends Context.Service<
                   });
                   yield* flush;
                   if (next.done) return yield* Queue.end(queue);
-                  position = next.value.seq;
                   yield* Queue.offer(
                     queue,
                     typedEventFromRaw(next.value, noSchemas),

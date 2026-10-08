@@ -19,7 +19,7 @@ import {
   type JetstreamEvent,
   type SubscribeOptions,
 } from "../src/jetstream/Jetstream.ts";
-import { Change } from "../src/Source.ts";
+import { Change, CursorStore } from "../src/Source.ts";
 import { makeAtprotoRepoSource } from "../src/sources/atproto/AtprotoRepo.ts";
 import { collections } from "../src/sources/atproto/collections.ts";
 
@@ -387,7 +387,7 @@ describe("AtprotoRepo", () => {
   );
 });
 
-describe("AtprotoRepo changes", () => {
+describe("AtprotoRepo follow", () => {
   const time = new Date(NOW).toISOString();
   const uri = (collection: string, rkey: string) =>
     `at://${DID}/${collection}/${rkey}`;
@@ -421,12 +421,16 @@ describe("AtprotoRepo changes", () => {
     createdAt: new Date(createdAt).toISOString(),
   });
 
-  /** Every change the source makes of `events`, opened at `cursor`. */
-  const changesOf = (
+  /**
+   * Follows `events` from `cursor`, logging each change applied and each
+   * cursor saved, in order.
+   */
+  const follow = (
     events: (
       options: SubscribeOptions,
     ) => Stream.Stream<JetstreamEvent, JetstreamError | CursorTooOld>,
     cursor: string | undefined,
+    apply: (change: Change) => Effect.Effect<void> = () => Effect.void,
   ) =>
     Effect.gen(function* () {
       yield* TestClock.setTime(NOW);
@@ -438,19 +442,25 @@ describe("AtprotoRepo changes", () => {
         Effect.provide(jetstream.layer),
         Effect.provide(mockNetwork(network({}))),
       );
-      const changes = yield* source.changes!({ cursor }).pipe(
-        Stream.runCollect,
+      const log: Array<Change | `save ${string}`> = [];
+      const exit = yield* source.follow!((change) =>
+        apply(change).pipe(Effect.andThen(Effect.sync(() => log.push(change)))),
+      ).pipe(
+        Effect.provideService(CursorStore, {
+          load: Effect.succeed(cursor),
+          save: (saved) => Effect.sync(() => log.push(`save ${saved}`)),
+        }),
         Effect.exit,
       );
-      return { changes, subscriptions: jetstream.subscriptions };
+      return { exit, log, subscriptions: jetstream.subscriptions };
     });
 
   it.effect(
-    "maps commits with the snapshot handlers, resuming at the cursor",
+    "maps commits with the snapshot handlers, saving each cursor after applying",
     () =>
       Effect.gen(function* () {
         const post1 = uri("app.bsky.feed.post", "3mxafgjedwc2y");
-        const { changes, subscriptions } = yield* changesOf(
+        const { exit, log, subscriptions } = yield* follow(
           () =>
             Stream.make(
               put(11, "app.bsky.feed.post", "3mxafgjedwc2y", post("hi")),
@@ -494,6 +504,7 @@ describe("AtprotoRepo changes", () => {
                 post("old", NOW - 60 * DAY),
                 "update",
               ),
+              // Nothing to apply, but the cursor moves on.
               event({
                 kind: "identity",
                 did: DID,
@@ -504,13 +515,11 @@ describe("AtprotoRepo changes", () => {
             ),
           "10",
         );
+        assert.isTrue(Exit.isSuccess(exit));
         assert.deepStrictEqual(subscriptions, [{ dids: [DID], cursor: 10 }]);
-        assert.isTrue(Exit.isSuccess(changes));
-        if (!Exit.isSuccess(changes)) return;
-        const [created, ...rest] = changes.value;
-        assert.strictEqual(created?._tag, "Batch");
-        if (created?._tag !== "Batch") return;
-        assert.strictEqual(created.cursor, "11");
+        const [created, ...rest] = log;
+        assert.isTrue(typeof created === "object" && created._tag === "Batch");
+        if (typeof created !== "object" || created._tag !== "Batch") return;
         assert.strictEqual(created.checkpoint, "rev11");
         const upsert = created.mutations[0];
         assert.strictEqual(upsert?._tag, "Upsert");
@@ -519,25 +528,30 @@ describe("AtprotoRepo changes", () => {
         assert.strictEqual(upsert.activity.timestamp, NOW);
         assert.strictEqual(upsert.activity.group, post1);
         assert.deepStrictEqual(rest, [
-          Change.batch([Mutation.delete(post1)], "12", "rev12"),
-          Change.batch([Mutation.delete(post1)], "13", "rev13"),
-          Change.batch([Mutation.delete(post1)], "14", "rev14"),
-          Change.batch([], "15", "rev15"),
+          "save 11",
+          Change.batch([Mutation.delete(post1)], "rev12"),
+          "save 12",
+          Change.batch([Mutation.delete(post1)], "rev13"),
+          "save 13",
+          Change.batch([Mutation.delete(post1)], "rev14"),
+          "save 14",
+          Change.batch([], "rev15"),
+          "save 15",
           Change.batch(
             [Mutation.delete(uri("app.bsky.feed.post", "3jzfcijpj2z2a"))],
-            "16",
             "rev16",
           ),
-          Change.batch([], "17"),
+          "save 16",
+          "save 17",
         ]);
       }),
   );
 
   it.effect(
-    "reports a gap when the repo is reset or the cursor was clamped",
+    "applies a gap when the repo is reset or the cursor was clamped",
     () =>
       Effect.gen(function* () {
-        const { changes } = yield* changesOf(
+        const { log } = yield* follow(
           () =>
             Stream.make(
               event({
@@ -555,33 +569,28 @@ describe("AtprotoRepo changes", () => {
             ),
           "20",
         );
-        assert.deepStrictEqual(
-          changes,
-          Exit.succeed([Change.gap(), Change.gap("21")]),
-        );
+        // An advisory has no seq, so there's no cursor to save for it.
+        assert.deepStrictEqual(log, [Change.gap(), Change.gap(), "save 21"]);
       }),
   );
 
   it.effect(
-    "starts from just before now when there's no cursor, as a gap",
+    "starts from just before now when there's no cursor, after a gap",
     () =>
       Effect.gen(function* () {
-        const { changes, subscriptions } = yield* changesOf(
+        const { log, subscriptions } = yield* follow(
           () => Stream.empty,
           undefined,
         );
         const start = (NOW - 60_000) * 1000;
         assert.deepStrictEqual(subscriptions, [{ dids: [DID], cursor: start }]);
-        assert.deepStrictEqual(
-          changes,
-          Exit.succeed([Change.gap(String(start))]),
-        );
+        assert.deepStrictEqual(log, [Change.gap(), `save ${start}`]);
       }),
   );
 
   it.effect("starts over from now when the cursor is too old to resume", () =>
     Effect.gen(function* () {
-      const { changes, subscriptions } = yield* changesOf(
+      const { log, subscriptions } = yield* follow(
         (options) =>
           options.cursor === 5
             ? Stream.fail(new CursorTooOld({ cursor: 5 }))
@@ -597,23 +606,39 @@ describe("AtprotoRepo changes", () => {
         subscriptions.map((s) => s.cursor),
         [5, start],
       );
-      assert.deepStrictEqual(
-        changes,
-        Exit.succeed([
-          Change.gap(String(start)),
-          Change.batch([], "31", "rev31"),
-        ]),
+      assert.deepStrictEqual(log, [
+        Change.gap(),
+        `save ${start}`,
+        Change.batch([], "rev31"),
+        "save 31",
+      ]);
+    }),
+  );
+
+  it.effect("doesn't save a cursor whose change failed to apply", () =>
+    Effect.gen(function* () {
+      const { exit, log } = yield* follow(
+        () =>
+          Stream.make(
+            put(41, "app.bsky.feed.like", "3mxafgjedwc2a", {
+              $type: "app.bsky.feed.like",
+            }),
+          ),
+        "40",
+        () => Effect.die("disk full"),
       );
+      assert.isTrue(Exit.hasDies(exit));
+      assert.deepStrictEqual(log, []);
     }),
   );
 
   it.effect("fails with a SourceError when Jetstream gives up", () =>
     Effect.gen(function* () {
-      const { changes } = yield* changesOf(
+      const { exit } = yield* follow(
         () => Stream.fail(new JetstreamError({ message: "gone", cause: null })),
         "1",
       );
-      const error = sourceError(changes);
+      const error = sourceError(exit);
       assert.strictEqual(error?._tag, "SourceError");
       assert.strictEqual(error?.message, "gone");
     }),

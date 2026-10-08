@@ -1,10 +1,4 @@
-import {
-  Context,
-  type Duration,
-  type Effect,
-  Schema,
-  type Stream,
-} from "effect";
+import { Context, type Duration, type Effect, Schema } from "effect";
 import type { Activity, Mutation } from "./Activity.ts";
 
 export class SourceError extends Schema.TaggedError<SourceError>()(
@@ -49,17 +43,12 @@ export const SnapshotResult = {
   }),
 };
 
-/**
- * What a realtime source's stream says. `cursor` is opaque to the cache: it's
- * persisted with the change it came with and handed back when the stream is
- * reopened, so a restart resumes where the last process left off.
- */
+/** What a realtime source tells the cache, in order. */
 export type Change =
   | {
       readonly _tag: "Batch";
       /** May be empty: upstream moved on without anything cached changing. */
       readonly mutations: ReadonlyArray<Mutation>;
-      readonly cursor: string;
       /**
        * The snapshot checkpoint these mutations bring the rows up to (for
        * atproto, the commit's rev). Keeps cheap "unchanged" checks working
@@ -74,18 +63,29 @@ export type Change =
        * can't be trusted until the next snapshot, which happens now.
        */
       readonly _tag: "Gap";
-      /** Where to resume from, if the stream has moved its position. */
-      readonly cursor?: string | undefined;
     };
 
 export const Change = {
-  batch: (
-    mutations: ReadonlyArray<Mutation>,
-    cursor: string,
-    checkpoint?: string,
-  ): Change => ({ _tag: "Batch", mutations, cursor, checkpoint }),
-  gap: (cursor?: string): Change => ({ _tag: "Gap", cursor }),
+  batch: (mutations: ReadonlyArray<Mutation>, checkpoint?: string): Change => ({
+    _tag: "Batch",
+    mutations,
+    checkpoint,
+  }),
+  gap: (): Change => ({ _tag: "Gap" }),
 };
+
+/**
+ * Where a realtime source keeps its position upstream, so a restart resumes
+ * where the last process left off. Opaque to the cache: only the source
+ * knows what a cursor means. Provided per source while `follow` runs.
+ */
+export class CursorStore extends Context.Service<
+  CursorStore,
+  {
+    readonly load: Effect.Effect<string | undefined>;
+    readonly save: (cursor: string) => Effect.Effect<void>;
+  }
+>()("activity-cache/CursorStore") {}
 
 /**
  * Somewhere activity comes from: an atproto repo, GitHub, … Each source's
@@ -119,16 +119,20 @@ export interface Source {
     readonly checkpoint: string | undefined;
   }) => Effect.Effect<SnapshotResult, SourceError>;
   /**
-   * Realtime changes, resuming from `cursor` (the last one the cache
-   * persisted). The cache runs this for as long as it runs, and reopens it
-   * with the latest cursor if it fails or ends.
+   * Follows upstream in realtime, handing each change to `apply` in order.
+   * Runs until it fails (or upstream ends); the cache then runs it again.
    *
-   * Opened without a cursor, the stream must start with a `Gap`: whatever
-   * happened before it started is only in the next snapshot.
+   * Resumes from the `CursorStore`, and saves a position only once `apply`
+   * has succeeded for everything before it. A crash in between replays
+   * changes, which is fine: they're idempotent. Saving first would skip them.
+   *
+   * With no usable cursor, it must `apply` a `Gap` before saving its
+   * starting position: whatever happened before then is only in the next
+   * snapshot.
    */
-  readonly changes?: (options: {
-    readonly cursor: string | undefined;
-  }) => Stream.Stream<Change, SourceError>;
+  readonly follow?: (
+    apply: (change: Change) => Effect.Effect<void>,
+  ) => Effect.Effect<void, SourceError, CursorStore>;
 }
 
 export class Sources extends Context.Service<Sources, ReadonlyArray<Source>>()(

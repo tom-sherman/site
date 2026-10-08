@@ -14,13 +14,6 @@ export interface PageQuery {
   readonly types?: ReadonlyArray<string> | undefined;
 }
 
-/** How far a source's realtime stream has got. */
-export interface StreamProgress {
-  readonly cursor: string;
-  /** Left as it was when absent. */
-  readonly checkpoint?: string | undefined;
-}
-
 /** What's known about a source's rows. Survives restarts. */
 export interface SourceState {
   readonly source: string;
@@ -132,21 +125,23 @@ export class Store extends Context.Service<
       sources: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
     /**
-     * Applies realtime mutations, and records how far the stream has got in
-     * the same transaction, so a restart resumes exactly after them.
+     * Applies realtime mutations and, if given, the checkpoint they bring the
+     * rows up to, in one transaction.
      */
     readonly write: (
       source: string,
       mutations: ReadonlyArray<Mutation>,
-      progress?: StreamProgress,
+      checkpoint?: string,
     ) => Effect.Effect<void>;
     /**
      * The rows may be missing changes: forget the fingerprint and checkpoint,
-     * so the next refresh is a full rebuild, and move the cursor if given.
+     * so the next refresh is a full rebuild.
      */
-    readonly markStale: (
+    readonly markStale: (source: string) => Effect.Effect<void>;
+    /** Backs the source's `CursorStore`. */
+    readonly saveCursor: (
       source: string,
-      cursor: string | undefined,
+      cursor: string,
     ) => Effect.Effect<void>;
     /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
@@ -325,29 +320,29 @@ export class Store extends Context.Service<
       const write = (
         source: string,
         mutations: ReadonlyArray<Mutation>,
-        progress?: StreamProgress,
+        checkpoint?: string,
       ) =>
         Effect.gen(function* () {
           yield* applyMutations(source, mutations);
-          if (!progress) return;
-          const checkpoint = progress.checkpoint ?? null;
+          if (checkpoint === undefined) return;
           yield* sql`
-            INSERT INTO source_state (source, cursor, checkpoint)
-            VALUES (${source}, ${progress.cursor}, ${checkpoint})
-            ON CONFLICT (source) DO UPDATE SET
-              cursor = excluded.cursor,
-              checkpoint = COALESCE(excluded.checkpoint, checkpoint)
+            INSERT INTO source_state (source, checkpoint)
+            VALUES (${source}, ${checkpoint})
+            ON CONFLICT (source) DO UPDATE SET checkpoint = excluded.checkpoint
           `;
         }).pipe(sql.withTransaction, Effect.orDie);
 
-      const markStale = (source: string, cursor: string | undefined) =>
+      const markStale = (source: string) =>
+        sql`
+          UPDATE source_state SET fingerprint = NULL, checkpoint = NULL
+          WHERE source = ${source}
+        `.pipe(Effect.asVoid, Effect.orDie);
+
+      const saveCursor = (source: string, cursor: string) =>
         sql`
           INSERT INTO source_state (source, cursor)
-          VALUES (${source}, ${cursor ?? null})
-          ON CONFLICT (source) DO UPDATE SET
-            fingerprint = NULL,
-            checkpoint = NULL,
-            cursor = COALESCE(excluded.cursor, cursor)
+          VALUES (${source}, ${cursor})
+          ON CONFLICT (source) DO UPDATE SET cursor = excluded.cursor
         `.pipe(Effect.asVoid, Effect.orDie);
 
       const replaceSource = (
@@ -468,6 +463,7 @@ export class Store extends Context.Service<
         dropSourcesExcept,
         write,
         markStale,
+        saveCursor,
         query,
         prune,
       });
