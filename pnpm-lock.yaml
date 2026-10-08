@@ -266,6 +266,9 @@ importers:
       '@atproto/lex':
         specifier: 'catalog:'
         version: 0.3.14
+      '@repo/activity-cache':
+        specifier: workspace:*
+        version: link:../activity-cache
       '@repo/atproto-client':
         specifier: workspace:*
         version: link:../atproto-client
@@ -275,6 +278,9 @@ importers:
       '@stylexjs/stylex':
         specifier: ^0.19.1
         version: 0.19.1
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.1
       jose:
         specifier: ^6.2.12
         version: 6.2.12

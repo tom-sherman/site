@@ -21,7 +21,7 @@ The site is an OpenID provider for its own backend services, like the [activity 
 - `/.well-known/jwks.json` publishes the public half of every signing key.
 - Both are prerendered, so `OIDC_ISSUER` and `OIDC_SIGNING_KEYS` must be set when building, and changing them needs a rebuild.
 - `OIDC_ISSUER` must match each service's configured issuer exactly, with no trailing slash.
-- `lib/activity-cache.ts` is `fetch` against the activity cache with a fresh token.
+- `activityCache` in `lib/activity-cache.ts` calls the activity cache with a fresh token, through an Effect `HttpApiClient` built from the cache's API definition, so responses are decoded against its schemas.
 
 ### Signing keys
 

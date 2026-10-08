@@ -25,7 +25,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 - `GET /activity?limit=50&before=<cursor>&type=<type>&type=…`: newest first, `{ items, cursor }`, with [roll-ups](#roll-ups) in place of what they roll up. `type` matches the roll-up, not its members. `503` until the first build finishes.
 - `GET /status`: per source, whether its rows match the current fingerprint, when it last refreshed, and any backoff. Unauthenticated, for health checks.
 
-`src/api.ts` is the `HttpApi` definition, so a typed client can be generated from it.
+`src/api.ts` is the `HttpApi` definition: endpoints and schemas, no handlers. It's exported as `@repo/activity-cache/api`, and the site builds its client from it with `HttpApiClient`, so it must only import `effect` and other client-safe modules.
 
 ### Auth
 
