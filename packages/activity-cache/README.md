@@ -94,10 +94,10 @@ Resuming makes Jetstream scan everything since the cursor for the DID's events, 
 
 **Why not Jetstream's archive?** Jetstream v2 also keeps an archive of the whole network, which `replay()` can backfill from, so after an outage the stream could catch up instead of the source rebuilding. But we only follow one repo, and it's simpler to download it and filter it:
 
-- **Export:** one unauthenticated request to the PDS (~6MB, about a second for ~12k records). It's the repo's exact current state, so deletes, edits and resets (`#sync`) are already accounted for, and taking the last 30 days is a filter.
-- **Archive:** needs an API token. Downloads are planned in blocks shared with everyone else's events, filtered client-side, so likely more bytes than one account's export. It's addressed by seq rather than time, so "30 days ago" has no direct way in. And it's a history of events to fold, which still can't explain a reset.
+- **Export:** one unauthenticated request to the PDS. It's the repo's exact current state, so deletes, edits and resets (`#sync`) are already accounted for, and taking the last 30 days is a filter.
+- **Archive:** a history of events to fold into rows, which still can't explain a reset. It's addressed by seq rather than time, so "30 days ago" has no direct way in, and it needs an API token.
 
-Worth revisiting if the repo grows to hundreds of MBs and the export gets slow.
+It's also more to download. Measured in October 2026: the export was 5.8MB in one request (about half a second), while 30 days from the archive was 55–60MB over about 140 requests (13–25s) for about 130 events. The archive plans downloads per DID, but in blocks of everyone's events, about 0.4MB each, and filters client-side. So its cost tracks how much I posted in the window, while the export's tracks the size of the whole repo. Worth revisiting if the repo grows to hundreds of MBs and the export gets slow.
 
 ### Roll-ups
 
