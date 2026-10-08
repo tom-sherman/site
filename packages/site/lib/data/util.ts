@@ -11,3 +11,11 @@ export function hueOf(key: string): number {
   for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   return Math.abs(hash) % 360;
 }
+
+/** The first line, cut at a word boundary to at most `length`. */
+export function truncate(text: string, length: number) {
+  const line = text.trim().split("\n")[0];
+  if (line.length <= length) return line;
+  const space = line.lastIndexOf(" ", length);
+  return `${line.slice(0, space > 0 ? space : length).trimEnd()}…`;
+}

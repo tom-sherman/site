@@ -1,8 +1,14 @@
 import "server-only";
-import { Client, type l } from "@atproto/lex";
 import type { ActivityItem } from "@repo/activity-cache/api";
 import { app } from "@repo/atproto-client";
 import { activityCache } from "../activity-cache";
+import {
+  bskyUrl,
+  getPostViews,
+  imageOf,
+  type PostView,
+  threadTitle,
+} from "./bluesky";
 import type {
   FeedItem,
   GitHubEventItem,
@@ -12,25 +18,20 @@ import type {
 } from "./feed";
 import { lastFmTrackUrl } from "./music";
 import { DID, TOM } from "./profile";
-import type { ImageRef, Person } from "./types";
-import { httpUrl, hueOf } from "./util";
+import type { Person } from "./types";
+import { httpUrl, hueOf, truncate } from "./util";
 
 type Of<T extends ActivityItem["type"]> = Extract<ActivityItem, { type: T }>;
 type Post = Of<"app.bsky.feed.post">;
 type Thread = Of<"is.sherman.unspecced.thread">;
 type Play = Of<"fm.teal.feed.play">;
 type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
-type PostView = app.bsky.feed.defs.PostView;
 
 /** How much of my own post a self-reply quotes. */
 const QUOTE_LENGTH = 40;
 
 /** The cache's page size limit; its 30 days is usually one page. */
 const PAGE_SIZE = 500;
-/** `getPosts` takes at most 25 URIs. */
-const POSTS_PER_REQUEST = 25;
-
-const appview = new Client("https://public.api.bsky.app");
 
 /**
  * Everything in the activity cache (the last 30 days) as feed items. Posts
@@ -106,24 +107,6 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   return [...uris];
 }
 
-/** Posts that are missing (deleted, or taken down) are left out. */
-async function getPostViews(uris: string[]): Promise<Map<string, PostView>> {
-  const batches: string[][] = [];
-  for (let i = 0; i < uris.length; i += POSTS_PER_REQUEST) {
-    batches.push(uris.slice(i, i + POSTS_PER_REQUEST));
-  }
-  const responses = await Promise.all(
-    batches.map((batch) =>
-      appview.call(app.bsky.feed.getPosts, {
-        uris: batch as l.AtUriString[],
-      }),
-    ),
-  );
-  return new Map(
-    responses.flatMap(({ posts }) => posts.map((post) => [post.uri, post])),
-  );
-}
-
 function postItem(post: Post, hydration: Hydration): PostItem {
   const view = hydration.views.get(post.id);
   return {
@@ -184,7 +167,7 @@ function threadItem(
     url: bskyUrl(root.id),
     publishedAt: thread.timestamp,
     network: "bluesky",
-    title: thread.data.title ?? truncate(root.data.text, 80),
+    title: threadTitle(thread.data.title, root.data.text),
     text: root.data.text,
     author: view ? personOf(view.author) : TOM,
     postCount: thread.members.length,
@@ -321,30 +304,6 @@ function avatarThumbnail(url: string): string | undefined {
   return url.startsWith(prefix)
     ? `https://cdn.bsky.app/img/avatar_thumbnail/${url.slice(prefix.length)}`
     : undefined;
-}
-
-/** The first image, from an images embed or a quote post with images. */
-function imageOf(view: PostView): ImageRef | undefined {
-  const { images, recordWithMedia } = app.bsky.embed;
-  const embed = view.embed;
-  if (!embed) return undefined;
-  const media = recordWithMedia.view.isTypeOf(embed) ? embed.media : embed;
-  const [image] = images.view.isTypeOf(media) ? media.images : [];
-  return image && { alt: image.alt || "Image", url: image.thumb };
-}
-
-/** `at://did/app.bsky.feed.post/rkey` on bsky.app. */
-function bskyUrl(uri: string) {
-  const [, , did, , rkey] = uri.split("/");
-  return `https://bsky.app/profile/${did}/post/${rkey}`;
-}
-
-/** The first line, cut at a word boundary to at most `length`. */
-function truncate(text: string, length: number) {
-  const line = text.trim().split("\n")[0];
-  if (line.length <= length) return line;
-  const space = line.lastIndexOf(" ", length);
-  return `${line.slice(0, space > 0 ? space : length).trimEnd()}…`;
 }
 
 function capitalise(text: string) {

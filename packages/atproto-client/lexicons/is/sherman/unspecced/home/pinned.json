@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "is.sherman.unspecced.home.pinned",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "What my homepage pins, in order. Pins are read from their records, not the activity feed, so they can be of any age.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["items", "updatedAt"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "type": "ref", "ref": "#item" },
+            "maxLength": 20
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["subject"],
+      "properties": {
+        "subject": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "What's pinned: an is.sherman.unspecced.thread or a site.standard.document."
+        },
+        "hero": {
+          "type": "boolean",
+          "default": false,
+          "description": "Shown as a card. Otherwise it's listed under the cards."
+        }
+      }
+    }
+  }
+}

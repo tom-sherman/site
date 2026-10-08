@@ -2,12 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import x from "@stylexjs/atoms";
 import { Artwork } from "@/lib/components/Artwork";
 import { Card } from "@/lib/components/Card";
-import { Glyph } from "@/lib/components/Glyph";
+import { Glyph, type GlyphName } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Eyebrow, Rule, Tag } from "@/lib/components/Text";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
+import type { PinnedItem } from "@/lib/data/pinned";
 import type { Timestamp } from "@/lib/data/types";
-import { glyphOf, labelOf, type HighPriorityItem } from "@/lib/feed";
 
 const styles = stylex.create({
   heading: {
@@ -23,9 +23,6 @@ const styles = stylex.create({
   headingText: {
     fontSize: "inherit",
     fontWeight: "inherit",
-  },
-  latest: {
-    color: colors.muted,
   },
   cards: {
     display: "grid",
@@ -99,21 +96,26 @@ const styles = stylex.create({
   },
 });
 
+const KINDS: Record<PinnedItem["kind"], { glyph: GlyphName; label: string }> = {
+  thread: { glyph: "bluesky", label: "Bluesky thread" },
+  "blog-post": { glyph: "writing", label: "Blog post" },
+};
+
 /**
- * Keeps the latest high-priority items in view. A shortcut, not a move: the
- * same items also appear in the feed.
+ * Keeps what I've chosen to pin in view, whenever it's from. Heroes get
+ * cards; the rest are listed under them.
  */
 export function PinnedRail({
   items,
   asOf,
 }: {
-  /** High-priority items, newest first. */
-  items: HighPriorityItem[];
+  /** In the order they were pinned. */
+  items: PinnedItem[];
   asOf: Timestamp;
 }) {
   if (!items.length) return null;
-  const pinned = items.slice(0, 2);
-  const more = items.slice(2);
+  const heroes = items.filter((item) => item.hero);
+  const more = items.filter((item) => !item.hero);
 
   return (
     <aside aria-labelledby="pinned-heading">
@@ -124,34 +126,43 @@ export function PinnedRail({
           </Tag>
         </h2>
         <Rule />
-        <span {...stylex.props(styles.latest)}>latest</span>
       </div>
 
-      <div {...stylex.props(styles.cards)}>
-        {pinned.map((item) => (
-          <Card key={item.id} href={item.url}>
-            <PinnedMedia item={item} />
-            <div {...stylex.props(styles.cardBody)}>
-              <div {...stylex.props(styles.cardMeta)}>
-                <span {...stylex.props(styles.ink)}>
-                  <Glyph name={glyphOf(item)} /> {labelOf(item)}
-                </span>
-                <span {...stylex.props(styles.time)}>
-                  <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
-                </span>
+      {heroes.length > 0 && (
+        <div {...stylex.props(styles.cards)}>
+          {heroes.map((item) => (
+            <Card key={item.id} href={item.url}>
+              {item.image && (
+                <Artwork
+                  image={item.image}
+                  variant="photo"
+                  caption={item.image.alt}
+                  style={styles.media}
+                />
+              )}
+              <div {...stylex.props(styles.cardBody)}>
+                <div {...stylex.props(styles.cardMeta)}>
+                  <span {...stylex.props(styles.ink)}>
+                    <Glyph name={KINDS[item.kind].glyph} />{" "}
+                    {KINDS[item.kind].label}
+                  </span>
+                  <span {...stylex.props(styles.time)}>
+                    <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
+                  </span>
+                </div>
+                <h3 {...stylex.props(styles.cardTitle)}>{item.title}</h3>
               </div>
-              <h3 {...stylex.props(styles.cardTitle)}>{item.title}</h3>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {more.length > 0 && (
         <>
           <Eyebrow
             as="h3"
             tone="muted"
-            style={[x.display.block, x.marginTop._36px]}
+            style={[x.display.block, heroes.length > 0 && x.marginTop._36px]}
           >
             More highlights
           </Eyebrow>
@@ -159,7 +170,7 @@ export function PinnedRail({
             {more.map((item) => (
               <li key={item.id}>
                 <a href={item.url} {...stylex.props(styles.moreItem)}>
-                  <Glyph name={glyphOf(item)} />
+                  <Glyph name={KINDS[item.kind].glyph} />
                   <span {...stylex.props(styles.moreTitle)}>{item.title}</span>
                   <span {...stylex.props(styles.moreTime)}>
                     <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
@@ -172,36 +183,4 @@ export function PinnedRail({
       )}
     </aside>
   );
-}
-
-function PinnedMedia({ item }: { item: HighPriorityItem }) {
-  switch (item.kind) {
-    case "blog-post":
-      return (
-        <Artwork
-          image={item.hero}
-          variant="photo"
-          caption={item.hero.alt}
-          style={styles.media}
-        />
-      );
-    case "thread":
-      return item.image ? (
-        <Artwork
-          image={item.image}
-          variant="photo"
-          caption={item.image.alt}
-          style={styles.media}
-        />
-      ) : null;
-    case "film-review":
-      return (
-        <Artwork
-          image={item.poster}
-          variant="poster"
-          caption="poster"
-          style={styles.media}
-        />
-      );
-  }
 }

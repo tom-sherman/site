@@ -1,13 +1,14 @@
 import "server-only";
 import {
-  Client,
+  type Client,
   getBlobCidString,
   isBlobRef,
   isLexMap,
-  XrpcResponseError,
 } from "@atproto/lex";
 import { fm, games } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
+import { getRecordOrNull, parseAtUri, pdsClient } from "./atproto";
+import { cdnImageUrl } from "./bluesky";
 import { getAlbumArt, lastFmArtistUrl } from "./music";
 import { DID } from "./profile";
 import type { ImageRef, Timestamp } from "./types";
@@ -57,7 +58,7 @@ export async function getNowStatus(): Promise<NowStatus> {
   cacheLife("seconds");
 
   const now = Date.now();
-  const client = resolvePds(DID).then((pds) => new Client(pds));
+  const client = pdsClient(DID);
   // A broken source shouldn't take the other down with it, or the page.
   const presences = await Promise.all(
     (
@@ -196,7 +197,10 @@ async function getPlaying(client: Client, now: Timestamp): Promise<Presence> {
   const title = game?.name ?? status.embed?.external.title ?? "a game";
   const thumb = status.embed?.external.thumb;
   const image =
-    game?.image ?? (thumb ? thumbnailUrl(DID, getBlobCidString(thumb)) : null);
+    game?.image ??
+    (thumb
+      ? cdnImageUrl("avatar_thumbnail", DID, getBlobCidString(thumb))
+      : null);
   const alt = `${title} cover`;
   const subtitle = [status.state, status.details?.event]
     .filter(Boolean)
@@ -235,10 +239,10 @@ async function getGame(uri: string): Promise<Game | null> {
   "use cache";
   cacheLife("days");
 
-  const match = /^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(uri);
-  if (!match) return null;
-  const [, repo, collection, rkey] = match;
-  const client = new Client(await resolvePds(repo));
+  const parts = parseAtUri(uri);
+  if (!parts) return null;
+  const { repo, collection, rkey } = parts;
+  const client = await pdsClient(repo);
   const record = await getRecordOrNull(client, collection, rkey, repo);
   if (!record) return null;
 
@@ -261,69 +265,13 @@ async function getGame(uri: string): Promise<Game | null> {
 
   return {
     name: typeof value.name === "string" && value.name ? value.name : null,
-    image: blob ? thumbnailUrl(repo, getBlobCidString(blob)) : null,
+    image: blob
+      ? cdnImageUrl("avatar_thumbnail", repo, getBlobCidString(blob))
+      : null,
     url:
       httpUrl(value.url) ??
       website("official") ??
       website("steam") ??
       website(),
   };
-}
-
-/**
- * A small square crop of an image blob, from Bluesky's CDN. The blob itself
- * can be megabytes, served uncached by whichever PDS hosts the repo.
- */
-function thumbnailUrl(did: string, cid: string) {
-  return `https://cdn.bsky.app/img/avatar_thumbnail/plain/${did}/${cid}@webp`;
-}
-
-async function getRecordOrNull(
-  client: Client,
-  collection: string,
-  rkey: string,
-  repo = DID,
-) {
-  try {
-    const { body } = await client.getRecord(
-      collection as `${string}.${string}.${string}`,
-      rkey,
-      { repo: repo as `did:${string}:${string}` },
-    );
-    return body;
-  } catch (error) {
-    if (error instanceof XrpcResponseError && error.error === "RecordNotFound")
-      return null;
-    throw error;
-  }
-}
-
-/** The PDS hosting `did`, from its DID document. */
-async function resolvePds(did: string): Promise<string> {
-  "use cache";
-  cacheLife("hours");
-
-  const url = did.startsWith("did:plc:")
-    ? `https://plc.directory/${did}`
-    : did.startsWith("did:web:")
-      ? `https://${decodeURIComponent(did.slice("did:web:".length))}/.well-known/did.json`
-      : null;
-  if (!url) throw new Error(`Unsupported DID method: ${did}`);
-
-  const response = await fetch(url);
-  if (!response.ok)
-    throw new Error(
-      `Couldn't fetch DID document for ${did}: ${response.status}`,
-    );
-  const doc = (await response.json()) as {
-    service?: { id: string; type: string; serviceEndpoint: unknown }[];
-  };
-  const pds = doc.service?.find(
-    (s) =>
-      (s.id === "#atproto_pds" || s.id === `${did}#atproto_pds`) &&
-      s.type === "AtprotoPersonalDataServer",
-  );
-  if (typeof pds?.serviceEndpoint !== "string")
-    throw new Error(`DID document for ${did} has no PDS`);
-  return pds.serviceEndpoint;
 }

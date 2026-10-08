@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { Container } from "@/lib/components/Container";
 import { breakpoints, layout } from "@/lib/components/tokens.stylex";
 import { getFeed } from "@/lib/data/feed";
+import { getPinned } from "@/lib/data/pinned";
 import { getProfile, getVisitorCount } from "@/lib/data/profile";
-import { isHighPriority } from "@/lib/feed";
 import { Feed } from "./_components/feed/Feed";
 import { Footer } from "./_components/Footer";
 import { Header } from "./_components/Header";
@@ -56,9 +56,14 @@ const styles = stylex.create({
 });
 
 export default async function Home() {
-  const [profile, feed, visitorCount] = await Promise.all([
+  const [profile, feed, pinned, visitorCount] = await Promise.all([
     getProfile(),
     getFeed(),
+    // Pins are extras; a broken PDS shouldn't take the page down with it.
+    getPinned().catch((error: unknown) => {
+      console.error("Couldn't get pinned items", error);
+      return [];
+    }),
     getVisitorCount(),
   ]);
 
@@ -74,10 +79,7 @@ export default async function Home() {
       />
       <Container as="main" style={styles.main}>
         <div {...stylex.props(styles.rail)}>
-          <PinnedRail
-            items={feed.items.filter(isHighPriority)}
-            asOf={feed.asOf}
-          />
+          <PinnedRail items={pinned} asOf={feed.asOf} />
         </div>
         <div {...stylex.props(styles.feed)}>
           <Feed
