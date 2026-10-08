@@ -187,14 +187,11 @@ function ItemList({ items, asOf }: { items: FeedItem[]; asOf: Timestamp }) {
   );
 }
 
-/** GitHub events link to what happened, e.g. the commit or the PR. */
 function Label({ item, style }: { item: FeedItem; style: StyleXStyles }) {
-  return item.kind === "github" ? (
+  return (
     <a href={item.url} {...stylex.props(style, styles.link)}>
       {labelOf(item)}
     </a>
-  ) : (
-    <span {...stylex.props(style)}>{labelOf(item)}</span>
   );
 }
 
