@@ -14,6 +14,7 @@ import {
   type HttpClientResponse,
 } from "effect/http";
 import type { Activity } from "../../Activity.ts";
+import { GitHubItem } from "../../ActivityItem.ts";
 import { type Source, SourceError, SnapshotResult } from "../../Source.ts";
 
 export class GitHubError extends Schema.TaggedError<GitHubError>()(
@@ -30,13 +31,18 @@ export class GitHubError extends Schema.TaggedError<GitHubError>()(
   },
 ) {}
 
-/** What we rely on in an event; everything else is passed through as-is. */
+/** What every event has. Whether it's served depends on `GitHubItem`. */
 const Event = Schema.Struct({
   id: Schema.String,
   type: Schema.String,
   created_at: Schema.String,
 });
 const isEvent = Schema.is(Event);
+/** Event types the API serves, and with the fields it serves. */
+const isServed = Schema.is(GitHubItem);
+const servedTypes: ReadonlySet<string> = new Set(
+  GitHubItem.members.map((member) => member.fields.type.literal),
+);
 
 const API = "https://api.github.com";
 
@@ -44,10 +50,10 @@ const API = "https://api.github.com";
 const PER_PAGE = 100;
 
 /**
- * Bump when the mapping from events to activity changes, so stored rows get
- * rebuilt.
+ * Bump when the mapping from events to activity changes, or `GitHubItem`
+ * does, so stored rows get rebuilt.
  */
-const VERSION = 1;
+const VERSION = 2;
 
 /** GitHub's own default, for when a response doesn't say. */
 const DEFAULT_POLL_INTERVAL = Duration.seconds(60);
@@ -233,8 +239,18 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
               yield* Effect.logWarning("Skipping invalid event");
               continue;
             }
-            if (activity.timestamp < since) reachedSince = true;
-            else activities.set(activity.id, activity);
+            if (activity.timestamp < since) {
+              reachedSince = true;
+            } else if (isServed(activity)) {
+              activities.set(activity.id, activity);
+            } else if (servedTypes.has(activity.type)) {
+              yield* Effect.logWarning(
+                "Skipping event that doesn't match its schema",
+              ).pipe(
+                Effect.annotateLogs({ id: activity.id, type: activity.type }),
+              );
+            }
+            // Anything else is a type the API doesn't serve.
           }
           const next = nextLink(page.response);
           if (reachedSince || next === undefined) break;

@@ -1,27 +1,18 @@
 import { Schema } from "effect";
 
-const fields = {
-  /** Stable key, so realtime updates and deletes can find the row (an at-uri for atproto records). */
-  id: Schema.String,
-  /** Epoch milliseconds. */
-  timestamp: Schema.Int,
-  /** What `data` is, e.g. an NSID like `app.bsky.feed.post`. */
-  type: Schema.String,
-  data: Schema.Json,
-};
-
 /**
- * One activity as served. Everything source-specific lives in `data`.
- *
- * A roll-up (see `Activity.collects`) is served in place of the activities
- * it rolls up, which are in `members` instead of in the feed.
+ * One feed entry as stored, before it's decoded into the API's
+ * `ActivityItem`. A roll-up (see `Activity.collects`) is served in place of
+ * the activities it rolls up, which are in `members` instead of in the feed.
  */
-export const ActivityItem = Schema.Struct({
-  ...fields,
+export interface FeedEntry {
+  readonly id: string;
+  readonly timestamp: number;
+  readonly type: string;
+  readonly data: Schema.Json;
   /** Oldest first. Only set on roll-ups. */
-  members: Schema.optional(Schema.Array(Schema.Struct(fields))),
-});
-export type ActivityItem = typeof ActivityItem.Type;
+  readonly members?: ReadonlyArray<Omit<FeedEntry, "members">> | undefined;
+}
 
 /** One cached activity, as sources produce it. */
 export interface Activity {

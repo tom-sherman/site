@@ -1,7 +1,8 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
 import { ActivityCache } from "./ActivityCache.ts";
-import { ActivityApi, Authorization } from "./api.ts";
+import type { FeedEntry } from "./Activity.ts";
+import { ActivityApi, ActivityItem, Authorization } from "./api.ts";
 import { OidcVerifier } from "./oidc/OidcVerifier.ts";
 import type { PageCursor } from "./Store.ts";
 
@@ -16,6 +17,27 @@ const decodeCursor = (cursor: string): PageCursor | undefined => {
   return { timestamp, id: cursor.slice(separator + 1) };
 };
 
+const decodeItem = Schema.decodeUnknownEffect(ActivityItem);
+
+/**
+ * Sources only store what the API serves, so this only fails on a bug, or a
+ * schema change without a source version bump. One bad entry shouldn't take
+ * the feed down, so it's logged and left out.
+ */
+const toItems = (entry: FeedEntry) =>
+  decodeItem(entry).pipe(
+    Effect.map((item) => [item]),
+    Effect.catch((error) =>
+      Effect.logWarning(
+        "Leaving out an entry the API can't serve",
+        error.message,
+      ).pipe(
+        Effect.annotateLogs({ id: entry.id, type: entry.type }),
+        Effect.as([]),
+      ),
+    ),
+  );
+
 export const ActivityApiHandlers = HttpApiBuilder.group(
   ActivityApi,
   "activity",
@@ -29,11 +51,17 @@ export const ActivityApiHandlers = HttpApiBuilder.group(
         if (query.before !== undefined && before === undefined) {
           return yield* new HttpApiError.BadRequest();
         }
-        const items = yield* cache.query({ limit, before, types: query.type });
-        const last = items.at(-1);
+        const entries = yield* cache.query({
+          limit,
+          before,
+          types: query.type,
+        });
+        const items = yield* Effect.forEach(entries, toItems);
+        // From the entries, so a page with an entry left out still pages on.
+        const last = entries.at(-1);
         return {
-          items,
-          cursor: items.length === limit && last ? encodeCursor(last) : null,
+          items: items.flat(),
+          cursor: entries.length === limit && last ? encodeCursor(last) : null,
         };
       }),
     });

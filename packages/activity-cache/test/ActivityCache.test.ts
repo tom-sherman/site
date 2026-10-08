@@ -21,7 +21,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach } from "vitest";
 import {
   type Activity,
-  type ActivityItem,
+  type FeedEntry,
   Mutation,
   RETENTION_MS,
 } from "../src/Activity.ts";
@@ -573,7 +573,7 @@ describe("ActivityCache roll-ups", () => {
   });
 
   /** `id@timestamp`, plus `[members]` for roll-ups. */
-  const outline = (items: ReadonlyArray<ActivityItem>) =>
+  const outline = (items: ReadonlyArray<FeedEntry>) =>
     items.map(
       (a) =>
         `${a.id}@${a.timestamp}` +

@@ -25,6 +25,13 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 - `GET /activity?limit=50&before=<cursor>&type=<type>&type=…`: newest first, `{ items, cursor }`, with [roll-ups](#roll-ups) in place of what they roll up. `type` matches the roll-up, not its members. `503` until the first build finishes.
 - `GET /status`: per source, whether its rows match the current fingerprint, when it last refreshed, and any backoff. Unauthenticated, for health checks.
 
+Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, keyed by `type`, so `data` is typed per type:
+
+- **atproto records** (`app.bsky.feed.post`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
+- **GitHub events** (`github.PushEvent`, …): `data` is `{ actor, repo, payload }`, with only the payload fields the schema lists.
+
+`type` filters only accept these types. Stored rows are decoded into the union when they're served. One that doesn't decode is logged and left out, and the cursor still moves past it.
+
 `src/api.ts` is the `HttpApi` definition: endpoints and schemas, no handlers. It's exported as `@repo/activity-cache/api`, and the site builds its client from it with `HttpApiClient`, so it must only import `effect` and other client-safe modules.
 
 ### Auth
@@ -110,7 +117,7 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 ### GitHub
 
-`src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it.
+`src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it. Only types in `GitHubItem` (`src/ActivityItem.ts`) are kept, and only when they match its schema; an event of a known type that doesn't is logged. GitHub trims event payloads: pull requests have no title, and pushes no commits.
 
 - **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the last 30 days of events, and at most 300 of them, so the source is [append-only](#append-only-sources): in a month with more than 300, the older ones drop out early and are kept until they're 30 days old. Otherwise GitHub's window and the retention window line up, so a rebuild usually loses nothing. Events that shift onto the next page while paging are deduplicated.
 - **Token.** `GITHUB_TOKEN` is optional; any token works, it needs no scopes. Without one, GitHub allows 60 requests an hour per IP and even a `304` counts, so the source polls at most every 5 minutes instead of at `X-Poll-Interval` (usually 60s). With one, `304`s are free.
@@ -119,6 +126,8 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 ## Adding a data type
 
-**atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
+**atproto collection.** Install the lexicon in `packages/atproto-client` (`pnpm lex:install <nsid> && pnpm build`), then add a `recordCollection(...)` to `src/sources/atproto/collections.ts`, and a `record(...)` item to `ActivityItem` in `src/ActivityItem.ts` so the API serves it. Its `rollup` option sets `group` and `collects`. That changes the fingerprint, so the atproto rows are rebuilt on the next boot. Changing how an existing collection maps? Bump its `version`.
 
-**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, and add it in `main.ts`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `follow(apply)`, [applying changes](#realtime) mapped the same way snapshots are.
+**GitHub event type.** Add a `githubEvent(...)` to `GitHubItem` in `src/ActivityItem.ts`, with the payload fields to serve, and bump `VERSION` in `GitHubEvents.ts` so stored events are refetched.
+
+**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, add it in `main.ts`, and add its types to `ActivityItem`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `follow(apply)`, [applying changes](#realtime) mapped the same way snapshots are.

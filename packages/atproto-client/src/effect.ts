@@ -1,17 +1,22 @@
 import {
   getMain,
+  jsonToLex,
+  lexToJson,
   xrpcSafe,
   type AgentConfig,
   type InferOutput,
+  type JsonValue,
+  type LexValue,
   type Main,
   type ParseOptions,
   type Procedure,
   type Query,
+  type RecordSchema,
   type Schema as LexSchema,
   type XrpcOptions,
   type XrpcResponse,
 } from "@atproto/lex";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Effect, Schema, SchemaGetter, SchemaIssue } from "effect";
 import { HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
 /**
@@ -112,6 +117,41 @@ export const parse = <S extends LexSchema>(
           }),
         );
   });
+
+/**
+ * An Effect schema for a lexicon record: JSON when encoded (CIDs as `$link`s,
+ * blobs as `{ $type: "blob" }`), lex's own values when decoded (`Cid`s,
+ * `BlobRef`s). Decoding validates against the lexicon, applying its defaults,
+ * so a `Schema` for an API can carry atproto records fully typed.
+ */
+export const lexRecord = <S extends RecordSchema>(schema: Main<S>) => {
+  const main = getMain(schema);
+  const Record = Schema.declare(
+    (input: unknown): input is InferOutput<S> => main.matches(input),
+    { title: main.$type },
+  );
+  return Schema.Json.pipe(
+    Schema.decodeTo(Record, {
+      decode: SchemaGetter.transformEffect((json, options) =>
+        Effect.suspend(() => {
+          const result = main.safeParse(jsonToLex(json as JsonValue));
+          return result.success
+            ? Effect.succeed(result.value as InferOutput<S>)
+            : Effect.fail(
+                new SchemaIssue.InvalidValue(
+                  { message: result.reason.message },
+                  json,
+                  options,
+                ),
+              );
+        }),
+      ),
+      encode: SchemaGetter.transform(
+        (record) => lexToJson(record as LexValue) as Schema.Json,
+      ),
+    }),
+  );
+};
 
 /**
  * A WHATWG `fetch` backed by the `HttpClient` in context, for handing to lex.

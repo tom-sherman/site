@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Duration, Effect, Exit, Layer, Redacted } from "effect";
+import { Duration, Effect, Exit, Layer, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { makeGitHubEventsSource } from "../src/sources/github/GitHubEvents.ts";
 
@@ -9,12 +9,31 @@ const EVENTS = `https://api.github.com/users/${USER}/events/public`;
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-06T12:00:00Z");
 
-const event = (id: string, daysAgo: number, type = "PushEvent") => ({
+/** Payloads shaped like GitHub's, trimmed as its events API trims them. */
+const payloads: Record<string, Schema.Json> = {
+  PushEvent: {
+    repository_id: 1,
+    push_id: 1,
+    ref: "refs/heads/main",
+    head: "b".repeat(40),
+    before: "a".repeat(40),
+  },
+  WatchEvent: { action: "started" },
+  // Not served by the API.
+  GollumEvent: { pages: [] },
+};
+
+const event = (
+  id: string,
+  daysAgo: number,
+  type = "PushEvent",
+  payload: Schema.Json = payloads[type] ?? {},
+) => ({
   id,
   type,
   actor: { login: USER },
   repo: { name: `${USER}/hello-world` },
-  payload: {},
+  payload,
   public: true,
   created_at: new Date(NOW - daysAgo * DAY).toISOString(),
 });
@@ -141,6 +160,28 @@ describe("GitHubEvents", () => {
     }),
   );
 
+  it.effect("only keeps event types the API serves, as it serves them", () =>
+    Effect.gen(function* () {
+      const net = mockNetwork(() =>
+        Response.json([
+          event("3", 1, "GollumEvent"),
+          // A served type, but missing what the API serves for it.
+          event("2", 1, "PushEvent", { ref: "refs/heads/main" }),
+          event("1", 1),
+        ]),
+      );
+      const result = yield* snapshot({ since: 0 }).pipe(
+        Effect.provide(net.layer),
+      );
+      assert.strictEqual(result._tag, "Snapshot");
+      if (result._tag !== "Snapshot") return;
+      assert.deepStrictEqual(
+        result.activities.map((a) => a.id),
+        ["github:1"],
+      );
+    }),
+  );
+
   it.effect("is unchanged when the first page's ETag still matches", () =>
     Effect.gen(function* () {
       const net = mockNetwork(
@@ -246,7 +287,7 @@ describe("GitHubEvents", () => {
       );
       assert.strictEqual(source.name, "github");
       assert.isTrue(source.appendOnly);
-      assert.strictEqual(source.fingerprint, `user=${USER};version=1`);
+      assert.strictEqual(source.fingerprint, `user=${USER};version=2`);
     }),
   );
 });

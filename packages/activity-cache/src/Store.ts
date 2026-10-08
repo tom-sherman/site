@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from "effect";
 import { SqlClient } from "effect/sql";
-import type { Activity, ActivityItem, Mutation } from "./Activity.ts";
+import type { Activity, FeedEntry, Mutation } from "./Activity.ts";
 
 export interface PageCursor {
   readonly timestamp: number;
@@ -146,7 +146,7 @@ export class Store extends Context.Service<
     /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
       query: PageQuery,
-    ) => Effect.Effect<ReadonlyArray<ActivityItem>>;
+    ) => Effect.Effect<ReadonlyArray<FeedEntry>>;
     readonly prune: (olderThan: number) => Effect.Effect<number>;
   }
 >()("activity-cache/Store") {
@@ -440,7 +440,7 @@ export class Store extends Context.Service<
               )
               .map(toItem);
 
-          return rows.map((row): ActivityItem =>
+          return rows.map((row): FeedEntry =>
             row.rollup === null
               ? toItem(row)
               : { ...toItem(row), members: membersOf(row) },
@@ -476,7 +476,7 @@ const toItem = (row: {
   readonly timestamp: number;
   readonly type: string;
   readonly data: Schema.Json;
-}): ActivityItem => ({
+}): FeedEntry => ({
   id: row.id,
   timestamp: row.timestamp,
   type: row.type,

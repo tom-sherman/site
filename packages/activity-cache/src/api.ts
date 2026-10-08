@@ -7,9 +7,9 @@ import {
   HttpApiMiddleware,
   HttpApiSecurity,
 } from "effect/http-api";
-import { ActivityItem } from "./Activity.ts";
+import { ActivityItem, ActivityType } from "./ActivityItem.ts";
 
-export { ActivityItem };
+export * from "./ActivityItem.ts";
 
 export const ActivityPage = Schema.Struct({
   /** Newest first. */
@@ -59,7 +59,7 @@ export class ActivityApi extends HttpApi.make("activity-cache")
             ),
             before: Schema.optional(Schema.String),
             /** Repeat to filter by several types. Matches roll-ups, not their members. */
-            type: Schema.optional(Schema.ArrayEnsure(Schema.String)),
+            type: Schema.optional(Schema.ArrayEnsure(ActivityType)),
           },
           success: ActivityPage,
           error: HttpApiError.BadRequest,

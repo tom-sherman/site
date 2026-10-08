@@ -9,7 +9,7 @@ import {
   Schedule,
   Semaphore,
 } from "effect";
-import { type ActivityItem, type Mutation, RETENTION_MS } from "./Activity.ts";
+import { type FeedEntry, type Mutation, RETENTION_MS } from "./Activity.ts";
 import {
   type Change,
   CursorStore,
@@ -78,7 +78,7 @@ export class ActivityCache extends Context.Service<
     /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
       query: PageQuery,
-    ) => Effect.Effect<ReadonlyArray<ActivityItem>>;
+    ) => Effect.Effect<ReadonlyArray<FeedEntry>>;
     /** Drops activity older than the retention window. */
     readonly prune: Effect.Effect<void>;
     readonly status: Effect.Effect<ReadonlyArray<SourceStatus>>;
