@@ -14,6 +14,13 @@ export interface PageQuery {
   readonly types?: ReadonlyArray<string> | undefined;
 }
 
+/** How far a source's realtime stream has got. */
+export interface StreamProgress {
+  readonly cursor: string;
+  /** Left as it was when absent. */
+  readonly checkpoint?: string | undefined;
+}
+
 /** What's known about a source's rows. Survives restarts. */
 export interface SourceState {
   readonly source: string;
@@ -24,6 +31,8 @@ export interface SourceState {
   /** When the source asked to be refreshed next (epoch ms); `null` if never refreshed. */
   readonly nextRefreshAt: number | null;
   readonly checkpoint: string | null;
+  /** Where the source's realtime stream resumes from; `null` if it never ran. */
+  readonly cursor: string | null;
   /** No upstream calls before this (epoch ms). */
   readonly nextAttemptAt: number;
   /** Attempts since the last success, counting one in progress. */
@@ -52,6 +61,7 @@ const StateRow = Schema.Struct({
   refreshed_at: Schema.NullOr(Schema.Int),
   next_refresh_at: Schema.NullOr(Schema.Int),
   checkpoint: Schema.NullOr(Schema.String),
+  cursor: Schema.NullOr(Schema.String),
   next_attempt_at: Schema.Int,
   failures: Schema.Int,
 });
@@ -62,6 +72,7 @@ const toState = (row: typeof StateRow.Type): SourceState => ({
   refreshedAt: row.refreshed_at,
   nextRefreshAt: row.next_refresh_at,
   checkpoint: row.checkpoint,
+  cursor: row.cursor,
   nextAttemptAt: row.next_attempt_at,
   failures: row.failures,
 });
@@ -70,7 +81,7 @@ const toState = (row: typeof StateRow.Type): SourceState => ({
  * Bump when the table layout changes. The data is disposable, so an older
  * layout is dropped and every source refills on its next refresh.
  */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const BATCH_SIZE = 500;
 
@@ -101,7 +112,8 @@ export class Store extends Context.Service<
     /**
      * Atomically swaps a source's rows for a snapshot (plus realtime mutations
      * that arrived while it was fetched) and marks the source fresh. With
-     * `keepExisting`, rows missing from the snapshot are kept.
+     * `keepExisting`, rows missing from the snapshot are kept. A `null`
+     * fingerprint keeps the source due for a rebuild.
      */
     readonly replaceSource: (
       source: string,
@@ -109,7 +121,7 @@ export class Store extends Context.Service<
         readonly activities: ReadonlyArray<Activity>;
         readonly keepExisting: boolean;
         readonly mutations: ReadonlyArray<Mutation>;
-        readonly fingerprint: string;
+        readonly fingerprint: string | null;
         readonly checkpoint: string | undefined;
         readonly refreshedAt: number;
         readonly nextRefreshAt: number;
@@ -119,9 +131,22 @@ export class Store extends Context.Service<
     readonly dropSourcesExcept: (
       sources: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
+    /**
+     * Applies realtime mutations, and records how far the stream has got in
+     * the same transaction, so a restart resumes exactly after them.
+     */
     readonly write: (
       source: string,
       mutations: ReadonlyArray<Mutation>,
+      progress?: StreamProgress,
+    ) => Effect.Effect<void>;
+    /**
+     * The rows may be missing changes: forget the fingerprint and checkpoint,
+     * so the next refresh is a full rebuild, and move the cursor if given.
+     */
+    readonly markStale: (
+      source: string,
+      cursor: string | undefined,
     ) => Effect.Effect<void>;
     /** Newest first, with roll-ups in place of the activities they collect. */
     readonly query: (
@@ -167,6 +192,7 @@ export class Store extends Context.Service<
             refreshed_at INTEGER,
             next_refresh_at INTEGER,
             checkpoint TEXT,
+            cursor TEXT,
             next_attempt_at INTEGER NOT NULL DEFAULT 0,
             failures INTEGER NOT NULL DEFAULT 0
           )
@@ -192,6 +218,7 @@ export class Store extends Context.Service<
                   refreshedAt: null,
                   nextRefreshAt: null,
                   checkpoint: null,
+                  cursor: null,
                   nextAttemptAt: 0,
                   failures: 0,
                 },
@@ -295,11 +322,33 @@ export class Store extends Context.Service<
           yield* flush;
         });
 
-      const write = (source: string, mutations: ReadonlyArray<Mutation>) =>
-        applyMutations(source, mutations).pipe(
-          sql.withTransaction,
-          Effect.orDie,
-        );
+      const write = (
+        source: string,
+        mutations: ReadonlyArray<Mutation>,
+        progress?: StreamProgress,
+      ) =>
+        Effect.gen(function* () {
+          yield* applyMutations(source, mutations);
+          if (!progress) return;
+          const checkpoint = progress.checkpoint ?? null;
+          yield* sql`
+            INSERT INTO source_state (source, cursor, checkpoint)
+            VALUES (${source}, ${progress.cursor}, ${checkpoint})
+            ON CONFLICT (source) DO UPDATE SET
+              cursor = excluded.cursor,
+              checkpoint = COALESCE(excluded.checkpoint, checkpoint)
+          `;
+        }).pipe(sql.withTransaction, Effect.orDie);
+
+      const markStale = (source: string, cursor: string | undefined) =>
+        sql`
+          INSERT INTO source_state (source, cursor)
+          VALUES (${source}, ${cursor ?? null})
+          ON CONFLICT (source) DO UPDATE SET
+            fingerprint = NULL,
+            checkpoint = NULL,
+            cursor = COALESCE(excluded.cursor, cursor)
+        `.pipe(Effect.asVoid, Effect.orDie);
 
       const replaceSource = (
         source: string,
@@ -307,7 +356,7 @@ export class Store extends Context.Service<
           readonly activities: ReadonlyArray<Activity>;
           readonly keepExisting: boolean;
           readonly mutations: ReadonlyArray<Mutation>;
-          readonly fingerprint: string;
+          readonly fingerprint: string | null;
           readonly checkpoint: string | undefined;
           readonly refreshedAt: number;
           readonly nextRefreshAt: number;
@@ -418,6 +467,7 @@ export class Store extends Context.Service<
         replaceSource,
         dropSourcesExcept,
         write,
+        markStale,
         query,
         prune,
       });

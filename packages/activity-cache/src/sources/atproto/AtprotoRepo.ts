@@ -1,10 +1,21 @@
 import { MemoryBlockstore, readCarWithRoot, Repo } from "@atproto/repo";
 import { com } from "@repo/atproto-client";
 import { xrpc, type XrpcError } from "@repo/atproto-client/effect";
-import { Duration, Effect, Schedule } from "effect";
+import { Clock, Duration, Effect, Schedule, Stream } from "effect";
 import { HttpClient } from "effect/http";
-import type { Activity } from "../../Activity.ts";
-import { type Source, SourceError, SnapshotResult } from "../../Source.ts";
+import { type Activity, Mutation, RETENTION_MS } from "../../Activity.ts";
+import {
+  Jetstream,
+  type JetstreamError,
+  type JetstreamEvent,
+  timestampCursor,
+} from "../../jetstream/Jetstream.ts";
+import {
+  Change,
+  type Source,
+  SourceError,
+  SnapshotResult,
+} from "../../Source.ts";
 import type { CollectionHandler } from "./collections.ts";
 import { resolvePds } from "./identity.ts";
 
@@ -60,24 +71,32 @@ const readCollections = (repo: Repo, collections: ReadonlyArray<string>) =>
  * How often to check the repo for changes. Each check is one `getLatestCommit`
  * call; the export is only downloaded when the revision has moved on.
  *
- * Until realtime ingestion exists this is what keeps atproto data fresh,
- * hence 5 minutes. Once Jetstream is consuming the repo, freshness comes from
- * the stream and this becomes a consistency check, catching what a persisted
- * cursor can't: downtime longer than Jetstream's replay window, consumer bugs,
- * and the repo being rewritten (e.g. a PDS migration). Then it can be an hour
- * or more. For that to stay cheap, applying Jetstream commits must also
- * advance the stored checkpoint to the commit's `rev`; otherwise every check
- * sees a newer revision than the last snapshot and downloads the whole repo.
+ * Freshness comes from Jetstream (`changes`), so this is a consistency check
+ * for what the stream can't see, like consumer bugs. It stays cheap because
+ * every commit on the stream advances the checkpoint to its `rev`, so a check
+ * normally finds the repo where the stream left it. Gaps the stream can see
+ * (a cursor older than Jetstream keeps, a repo reset) trigger a rebuild
+ * straight away instead of waiting for this.
  *
  * Deliberately not configurable: nothing about a deployment should change it.
  * Returned as each snapshot's `refreshAfter`; the cache does the scheduling.
  */
-const REFRESH_INTERVAL = Duration.minutes(5);
+const REFRESH_INTERVAL = Duration.hours(1);
+
+/**
+ * How far before "now" a stream (re)started from a timestamp begins, so the
+ * Jetstream server's clock running behind ours can't open a gap. Replaying a
+ * minute twice is harmless: upserts and deletes are idempotent.
+ */
+const CLOCK_SKEW = Duration.minutes(1);
 
 /**
  * Snapshots from a full repo export (~6MB and about a second for ~12k
  * records). The checkpoint is the repo revision, so a refresh where nothing
  * changed costs one `getLatestCommit` call instead.
+ *
+ * Realtime changes come from Jetstream, mapped by the same collection
+ * handlers, so the stream and snapshots always agree.
  */
 export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
   function* (options: {
@@ -85,6 +104,7 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
     readonly collections: ReadonlyArray<CollectionHandler>;
   }) {
     const client = yield* HttpClient.HttpClient;
+    const jetstream = yield* Jetstream;
     const did = options.did as Did;
     const handlers = new Map(options.collections.map((h) => [h.collection, h]));
 
@@ -136,6 +156,109 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
         Effect.withSpan("AtprotoRepo.snapshot"),
       );
 
+    /** One record's commit, mapped with the same handler snapshots use. */
+    const commitMutation = (
+      commit: Extract<JetstreamEvent, { kind: "commit" }>["commit"],
+    ) =>
+      Effect.gen(function* () {
+        const handler = handlers.get(commit.collection);
+        if (!handler) return undefined;
+        const uri = `at://${did}/${commit.collection}/${commit.rkey}`;
+        if (commit.operation === "delete") return Mutation.delete(uri);
+        // A record that's no longer activity (or never converted) must not
+        // leave an earlier version of itself behind.
+        const activity =
+          commit.record === undefined
+            ? undefined
+            : yield* handler.toActivity({
+                uri,
+                rkey: commit.rkey,
+                value: commit.record,
+              });
+        const since = (yield* Clock.currentTimeMillis) - RETENTION_MS;
+        return activity && activity.timestamp >= since
+          ? Mutation.upsert(activity)
+          : Mutation.delete(uri);
+      });
+
+    const toChange = (event: JetstreamEvent) =>
+      Effect.gen(function* () {
+        switch (event.kind) {
+          case "info":
+            if (event.name === "OutdatedCursor") return Change.gap();
+            yield* Effect.logInfo(`Jetstream: ${event.name}`, event.message);
+            return undefined;
+          case "commit": {
+            const cursor = String(event.seq);
+            if (event.did !== did) return Change.batch([], cursor);
+            const mutation = yield* commitMutation(event.commit);
+            // Every commit moves the checkpoint on, including ones to
+            // collections that aren't cached, or hourly checks would always
+            // see a newer rev and download the repo.
+            return Change.batch(
+              mutation ? [mutation] : [],
+              cursor,
+              event.commit.rev,
+            );
+          }
+          case "sync":
+            // The repo was reset (e.g. a PDS migration), so its commits no
+            // longer describe how it got to where it is.
+            return event.did === did
+              ? Change.gap(String(event.seq))
+              : Change.batch([], String(event.seq));
+          case "identity":
+          case "account":
+            return Change.batch([], String(event.seq));
+        }
+      });
+
+    const follow = (cursor: number): Stream.Stream<Change, JetstreamError> =>
+      jetstream.subscribe({ dids: [did], cursor }).pipe(
+        Stream.mapEffect(toChange),
+        Stream.filter((change) => change !== undefined),
+        Stream.catchTag("CursorTooOld", (error) =>
+          Stream.unwrap(
+            Effect.logWarning(error.message).pipe(Effect.as(fromNow)),
+          ),
+        ),
+      );
+
+    /** Starts over from (just before) now, announcing what's been missed. */
+    const fromNow: Stream.Stream<Change, JetstreamError> = Stream.unwrap(
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const cursor = timestampCursor(now - Duration.toMillis(CLOCK_SKEW));
+        return Stream.concat(
+          Stream.succeed(Change.gap(String(cursor))),
+          follow(cursor),
+        );
+      }),
+    );
+
+    /**
+     * Commits from Jetstream, filtered to this DID server-side. Cursors are
+     * Jetstream seqs, or a timestamp cursor until the first event arrives.
+     */
+    const changes = ({ cursor }: { readonly cursor: string | undefined }) => {
+      const seq = Number(cursor);
+      return (
+        cursor !== undefined && Number.isSafeInteger(seq)
+          ? follow(seq)
+          : fromNow
+      ).pipe(
+        Stream.mapError(
+          (cause) =>
+            new SourceError({
+              source: "atproto",
+              message: cause.message,
+              cause,
+            }),
+        ),
+        Stream.withSpan("AtprotoRepo.changes"),
+      );
+    };
+
     return {
       name: "atproto",
       fingerprint: [
@@ -146,6 +269,7 @@ export const makeAtprotoRepoSource = Effect.fn("makeAtprotoRepoSource")(
           .join(",")}`,
       ].join(";"),
       snapshot,
+      changes,
     } satisfies Source;
   },
 );
