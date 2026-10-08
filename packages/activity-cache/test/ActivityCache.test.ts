@@ -534,6 +534,40 @@ describe("ActivityCache roll-ups", () => {
     }),
   );
 
+  it.effect("unrolls when the group's first activity is deleted", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("root", 100, "root"),
+        post("reply", 200, "root"),
+        thread("marker", 1000, "root"),
+      ]);
+      yield* cache.apply("a", [Mutation.delete("root")]);
+      assert.deepStrictEqual(yield* feed(cache), ["reply@200"]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("keeps members in step with deletes and redrafts", () =>
+    Effect.gen(function* () {
+      const { cache, stop } = yield* withRows([
+        post("root", 100, "root"),
+        post("reply-1", 200, "root"),
+        post("reply-2", 300, "root"),
+        thread("marker", 1000, "root"),
+      ]);
+      yield* cache.apply("a", [Mutation.delete("reply-2")]);
+      assert.deepStrictEqual(yield* feed(cache), ["marker@100[root,reply-1]"]);
+
+      // A redraft: the reply is deleted and posted again, so it's newer.
+      yield* cache.apply("a", [
+        Mutation.delete("reply-1"),
+        Mutation.upsert(post("redraft", 400, "root")),
+      ]);
+      assert.deepStrictEqual(yield* feed(cache), ["marker@100[root,redraft]"]);
+      yield* stop;
+    }),
+  );
+
   it.effect("lets the lowest id win when several collect one group", () =>
     Effect.gen(function* () {
       const { cache, stop } = yield* withRows([
