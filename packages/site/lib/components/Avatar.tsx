@@ -20,6 +20,11 @@ const styles = stylex.create({
   tinted: (hue: number) => ({
     backgroundColor: `oklch(0.8 0.12 ${hue})`,
   }),
+  image: {
+    objectFit: "cover",
+  },
+  // Inline with text, e.g. next to a handle.
+  xs: { width: 14, height: 14 },
   sm: { width: 24, height: 24 },
   md: { width: 28, height: 28 },
   lg: { width: 34, height: 34 },
@@ -46,7 +51,7 @@ const styles = stylex.create({
   },
 });
 
-type Size = "sm" | "md" | "lg" | "display";
+type Size = "xs" | "sm" | "md" | "lg" | "display";
 
 const labelSizes = {
   sm: styles.smLabel,
@@ -56,8 +61,9 @@ const labelSizes = {
 };
 
 /**
- * A circular avatar. Until real images exist it renders a tinted placeholder
- * with initials; an image without a hue gets the accent (Tom's fallback).
+ * A circular avatar: the image when there's a `url`, over its tint while it
+ * loads. Otherwise a tinted placeholder with initials; an image without a hue
+ * gets the accent (Tom's fallback).
  */
 export function Avatar({
   name,
@@ -68,20 +74,35 @@ export function Avatar({
   image: ImageRef;
   size?: Size;
 }) {
+  const tint =
+    image.hue === undefined ? styles.accent : styles.tinted(image.hue);
+  if (image.url && size !== "display") {
+    return (
+      // Already a small thumbnail on Bluesky's CDN, so not run through
+      // next/image's optimizer.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image.url}
+        alt={image.alt}
+        title={name}
+        loading="lazy"
+        {...stylex.props(styles.avatar, styles.image, tint, styles[size])}
+      />
+    );
+  }
   return (
     <span
       role="img"
       aria-label={image.alt}
       title={name}
-      {...stylex.props(
-        styles.avatar,
-        image.hue === undefined ? styles.accent : styles.tinted(image.hue),
-        styles[size],
-      )}
+      {...stylex.props(styles.avatar, tint, styles[size])}
     >
-      <span aria-hidden {...stylex.props(labelSizes[size])}>
-        {size === "display" ? "photo" : initials(name)}
-      </span>
+      {/* Too small for initials; just the tint. */}
+      {size !== "xs" && (
+        <span aria-hidden {...stylex.props(labelSizes[size])}>
+          {size === "display" ? "photo" : initials(name)}
+        </span>
+      )}
     </span>
   );
 }
@@ -103,11 +124,21 @@ export function AvatarStack({
   );
 }
 
+const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
+
+/**
+ * The first character of the first two words. Characters are graphemes, so
+ * an emoji isn't split into half a surrogate pair, which renders differently
+ * on the server and the client.
+ */
 function initials(name: string) {
   return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
+    .split(/\s+/)
+    .flatMap((word) => {
+      const first = graphemes.segment(word)[Symbol.iterator]().next();
+      return first.done ? [] : [first.value.segment];
+    })
     .slice(0, 2)
+    .join("")
     .toUpperCase();
 }

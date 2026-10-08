@@ -10,6 +10,9 @@ export interface Profile {
   links: { label: string; url: string }[];
 }
 
+/** My atproto identity. */
+export const DID = "did:plc:2xau7wbgdq4phuou2ypwuen7";
+
 export const TOM: Person = {
   name: "Tom Sherman",
   handle: "@tomsherman.dev",

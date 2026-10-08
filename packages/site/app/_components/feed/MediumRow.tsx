@@ -22,6 +22,11 @@ const styles = stylex.create({
     padding: 0,
     borderRadius: 2,
   },
+  // Where the avatar would be, so replies line up with other rows.
+  noAvatar: {
+    width: 28,
+    flexShrink: 0,
+  },
   main: {
     flexGrow: 1,
     minWidth: 0,
@@ -37,6 +42,11 @@ const styles = stylex.create({
   },
   ink: {
     color: colors.ink,
+  },
+  replyTo: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
   },
   text: {
     marginTop: 4,
@@ -59,13 +69,11 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
     <div {...stylex.props(styles.row)}>
       {item.kind === "film-rating" ? (
         <Artwork image={item.poster} variant="poster" style={styles.thumb} />
+      ) : item.replyTo ? (
+        // A reply shows who it's replying to, next to their handle instead.
+        <span {...stylex.props(styles.noAvatar)} />
       ) : (
-        // Replies show who's being replied to, which is where most of the
-        // page's colour comes from.
-        <Avatar
-          name={(item.replyTo ?? item.author).name}
-          image={(item.replyTo ?? item.author).avatar}
-        />
+        <Avatar name={item.author.name} image={item.author.avatar} />
       )}
       <div {...stylex.props(styles.main)}>
         <div {...stylex.props(styles.meta)}>
@@ -73,9 +81,24 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
             <Glyph name={glyphOf(item)} /> {labelOf(item)}
           </span>
           {item.kind === "post" && item.replyTo && (
-            <span>
-              ↳ replying to{" "}
-              <span {...stylex.props(styles.ink)}>{item.replyTo.handle}</span>
+            <span {...stylex.props(styles.replyTo)}>
+              ↳ replying to
+              {item.replyTo.kind === "self" ? (
+                <span {...stylex.props(styles.ink)}>
+                  “{item.replyTo.quote}”
+                </span>
+              ) : (
+                <>
+                  <Avatar
+                    name={item.replyTo.person.name}
+                    image={item.replyTo.person.avatar}
+                    size="xs"
+                  />
+                  <span {...stylex.props(styles.ink)}>
+                    {item.replyTo.person.handle}
+                  </span>
+                </>
+              )}
             </span>
           )}
         </div>

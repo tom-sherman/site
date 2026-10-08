@@ -111,6 +111,7 @@ export function PinnedRail({
   items: HighPriorityItem[];
   asOf: Timestamp;
 }) {
+  if (!items.length) return null;
   const pinned = items.slice(0, 2);
   const more = items.slice(2);
 

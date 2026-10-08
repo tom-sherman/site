@@ -8,7 +8,10 @@ import {
 } from "@atproto/lex";
 import { fm, games } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
+import { getAlbumArt, lastFmArtistUrl } from "./music";
+import { DID } from "./profile";
 import type { ImageRef, Timestamp } from "./types";
+import { httpUrl, hueOf } from "./util";
 
 /** A piece of text, linked when there's somewhere to go. */
 export interface NowLink {
@@ -36,8 +39,6 @@ export interface NowStatus {
   /** When an activity was last current. `null` when there's no record of one. */
   lastSeenAt: Timestamp | null;
 }
-
-const DID = "did:plc:2xau7wbgdq4phuou2ypwuen7";
 
 /** teal.fm's default when a status has no `expiry`. */
 const TEAL_DEFAULT_EXPIRY_MS = 10 * 60_000;
@@ -137,25 +138,6 @@ async function getListening(client: Client, now: Timestamp): Promise<Presence> {
     },
     lastSeenAt: now,
   };
-}
-
-/**
- * A 56px album cover for a recording, looked up by ISRC on Deezer (keyless,
- * and served from its CDN). It can land on a different edition of the album.
- */
-async function getAlbumArt(isrc: string): Promise<string | null> {
-  "use cache";
-  cacheLife("days");
-
-  const response = await fetch(
-    `https://api.deezer.com/track/isrc:${encodeURIComponent(isrc)}`,
-  );
-  if (!response.ok) throw new Error(`Deezer returned ${response.status}`);
-  // Not found is a 200 with an `error` body, which has no album.
-  const track = (await response.json()) as {
-    album?: { cover_small?: string };
-  };
-  return track.album?.cover_small ?? null;
 }
 
 function isClearedTealStatus(value: Record<string, unknown>) {
@@ -286,24 +268,6 @@ async function getGame(uri: string): Promise<Game | null> {
       website("steam") ??
       website(),
   };
-}
-
-/** `value` if it's an http(s) URL. Records are untrusted, so no `javascript:` links. */
-function httpUrl(value: unknown): string | undefined {
-  if (typeof value !== "string" || !URL.canParse(value)) return undefined;
-  const { protocol } = new URL(value);
-  return protocol === "https:" || protocol === "http:" ? value : undefined;
-}
-
-function lastFmArtistUrl(name: string) {
-  return `https://www.last.fm/music/${encodeURIComponent(name).replaceAll("%20", "+")}`;
-}
-
-/** A stable placeholder tint for when there's no artwork. */
-function hueOf(key: string): number {
-  let hash = 0;
-  for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return Math.abs(hash) % 360;
 }
 
 /**

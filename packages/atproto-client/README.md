@@ -2,7 +2,7 @@
 
 Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.dev/package/@atproto/lex).
 
-Installed lexicons: `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.actor.status`, `fm.teal.feed.play`
+Installed lexicons: `app.bsky.feed.getPosts`, `app.bsky.feed.post`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.actor.status`, `fm.teal.feed.play`
 
 Authored here: `is.sherman.unspecced.thread` (see [Our own lexicons](#our-own-lexicons))
 
