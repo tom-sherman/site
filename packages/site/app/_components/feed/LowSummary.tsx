@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import type { StyleXStyles } from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Artwork } from "@/lib/components/Artwork";
 import { Glyph } from "@/lib/components/Glyph";
@@ -30,6 +31,16 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  link: {
+    color: {
+      default: "inherit",
+      ":hover": colors.ink,
+    },
+    textDecorationLine: {
+      default: "none",
+      ":hover": "underline",
+    },
   },
   toggle: {
     flexShrink: 0,
@@ -122,7 +133,7 @@ export function LowSummary({
           <div key={kind}>
             <div {...stylex.props(styles.summary)}>
               <Glyph name={glyphOf(newest)} />
-              <span {...stylex.props(styles.label)}>{labelOf(newest)}</span>
+              <Label item={newest} style={styles.label} />
               {ofKind.length > 1 && (
                 <Toggle open={!!open[kind]} onToggle={() => onToggle(kind)}>
                   +{ofKind.length - 1} more
@@ -169,10 +180,21 @@ function ItemList({ items, asOf }: { items: FeedItem[]; asOf: Timestamp }) {
             <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
           </span>
           <Swatch item={item} />
-          <span {...stylex.props(styles.text)}>{labelOf(item)}</span>
+          <Label item={item} style={styles.text} />
         </li>
       ))}
     </ul>
+  );
+}
+
+/** GitHub events link to what happened, e.g. the commit or the PR. */
+function Label({ item, style }: { item: FeedItem; style: StyleXStyles }) {
+  return item.kind === "github" ? (
+    <a href={item.url} {...stylex.props(style, styles.link)}>
+      {labelOf(item)}
+    </a>
+  ) : (
+    <span {...stylex.props(style)}>{labelOf(item)}</span>
   );
 }
 
