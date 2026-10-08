@@ -1,10 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { Artwork } from "@/lib/components/Artwork";
+import { Glyph, type GlyphName } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FeedItem } from "@/lib/data/feed";
 import type { Timestamp } from "@/lib/data/types";
-import { GLYPHS, labelOf } from "@/lib/feed";
+import { labelOf } from "@/lib/feed";
 import { formatMinutes } from "@/lib/time";
 
 const styles = stylex.create({
@@ -106,7 +107,7 @@ export function LowSummary({
       >
         {summarise(items).map(({ glyph, text }, i) => (
           <span key={i} {...stylex.props(styles.part)}>
-            <span aria-hidden>{glyph}</span>
+            <Glyph name={glyph} />
             <span>{text}</span>
           </span>
         ))}
@@ -143,28 +144,27 @@ function Swatch({ item }: { item: FeedItem }) {
 }
 
 function summarise(items: FeedItem[]) {
-  const parts: { glyph: string; text: string }[] = [];
+  const parts: { glyph: GlyphName; text: string }[] = [];
   const count = (kind: FeedItem["kind"]) =>
     items.filter((i) => i.kind === kind).length;
   const plural = (n: number, word: string) =>
     `${n} ${word}${n === 1 ? "" : "s"}`;
 
   const tracks = count("track");
-  if (tracks)
-    parts.push({ glyph: GLYPHS.music, text: plural(tracks, "track") });
+  if (tracks) parts.push({ glyph: "music", text: plural(tracks, "track") });
   for (const item of items) {
     if (item.kind === "game-session") {
       parts.push({
-        glyph: GLYPHS.games,
+        glyph: "games",
         text: `${item.title} ${formatMinutes(item.minutes)}`,
       });
     }
   }
   const episodes = count("episode");
   if (episodes) {
-    parts.push({ glyph: GLYPHS.film, text: plural(episodes, "episode") });
+    parts.push({ glyph: "film", text: plural(episodes, "episode") });
   }
   const github = count("github");
-  if (github) parts.push({ glyph: GLYPHS.code, text: `${github} on GitHub` });
+  if (github) parts.push({ glyph: "code", text: `${github} on GitHub` });
   return parts;
 }

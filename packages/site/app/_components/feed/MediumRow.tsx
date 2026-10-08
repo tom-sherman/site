@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Artwork } from "@/lib/components/Artwork";
 import { Avatar } from "@/lib/components/Avatar";
+import { Glyph } from "@/lib/components/Glyph";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FilmRatingItem, PostItem } from "@/lib/data/feed";
 import { formatCount, formatStars, glyphOf, labelOf } from "@/lib/feed";
@@ -69,7 +70,7 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
       <div {...stylex.props(styles.main)}>
         <div {...stylex.props(styles.meta)}>
           <span {...stylex.props(styles.ink)}>
-            {glyphOf(item)} {labelOf(item)}
+            <Glyph name={glyphOf(item)} /> {labelOf(item)}
           </span>
           {item.kind === "post" && item.replyTo && (
             <span>

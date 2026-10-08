@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { Avatar } from "@/lib/components/Avatar";
 import { Container } from "@/lib/components/Container";
+import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Marginalia, TextLink } from "@/lib/components/Text";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { Profile } from "@/lib/data/profile";
 import type { Timestamp } from "@/lib/data/types";
-import { GLYPHS } from "@/lib/feed";
 
 const styles = stylex.create({
   header: {
@@ -123,7 +123,7 @@ export function Header({
         <nav aria-label="Elsewhere" {...stylex.props(styles.links)}>
           {profile.links.map((link) => (
             <TextLink key={link.label} href={link.url} rel="me">
-              {link.label} {GLYPHS.external}
+              {link.label} <Glyph name="external" />
             </TextLink>
           ))}
         </nav>

@@ -1,3 +1,4 @@
+import type { GlyphName } from "./components/Glyph";
 import type { FeedItem } from "./data/feed";
 import { formatMinutes } from "./time";
 
@@ -10,30 +11,18 @@ export type FeedCategory =
  */
 export type Priority = "high" | "medium" | "low";
 
-/** Type icons are text set in the mono font. Don't swap them for an icon set. */
-export const GLYPHS = {
-  all: "*",
-  writing: "¶",
-  bluesky: "✱",
-  x: "✕",
-  film: "◐",
-  music: "♫",
-  games: "▶",
-  code: "⌥",
-  pinned: "◆",
-  external: "↗",
-  cycle: "⇄",
-} as const;
-
-export const CATEGORIES: { id: FeedCategory; glyph: string; label: string }[] =
-  [
-    { id: "writing", glyph: GLYPHS.writing, label: "Writing" },
-    { id: "posts", glyph: GLYPHS.bluesky, label: "Posts" },
-    { id: "film", glyph: GLYPHS.film, label: "Film" },
-    { id: "music", glyph: GLYPHS.music, label: "Music" },
-    { id: "games", glyph: GLYPHS.games, label: "Games" },
-    { id: "code", glyph: GLYPHS.code, label: "Code" },
-  ];
+export const CATEGORIES: {
+  id: FeedCategory;
+  glyph: GlyphName;
+  label: string;
+}[] = [
+  { id: "writing", glyph: "writing", label: "Writing" },
+  { id: "posts", glyph: "bluesky", label: "Posts" },
+  { id: "film", glyph: "film", label: "Film" },
+  { id: "music", glyph: "music", label: "Music" },
+  { id: "games", glyph: "games", label: "Games" },
+  { id: "code", glyph: "code", label: "Code" },
+];
 
 export function categoryOf(item: FeedItem): FeedCategory {
   switch (item.kind) {
@@ -90,9 +79,9 @@ export function isMediumPriority(item: FeedItem): item is MediumPriorityItem {
   return priorityOf(item) === "medium";
 }
 
-export function glyphOf(item: FeedItem): string {
+export function glyphOf(item: FeedItem): GlyphName {
   if (item.kind === "post" || item.kind === "thread") {
-    return GLYPHS[item.network];
+    return item.network;
   }
   return CATEGORIES.find((c) => c.id === categoryOf(item))!.glyph;
 }

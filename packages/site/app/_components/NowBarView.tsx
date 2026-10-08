@@ -10,11 +10,11 @@ import {
   ViewTransition,
 } from "react";
 import { Artwork } from "@/lib/components/Artwork";
+import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Tag } from "@/lib/components/Text";
 import { breakpoints, colors, layout } from "@/lib/components/tokens.stylex";
 import type { NowActivity, NowStatus } from "@/lib/data/now";
-import { GLYPHS } from "@/lib/feed";
 import { formatClock, formatMinutes, formatTimestamp } from "@/lib/time";
 import { useNow } from "@/lib/use-now";
 import { NowBarShell } from "./NowBarShell";
@@ -248,7 +248,7 @@ export function NowBarView({
           onClick={() => startTransition(() => setIndex(index + 1))}
           {...stylex.props(styles.cycle)}
         >
-          {current + 1}/{activities.length} {GLYPHS.cycle}
+          {current + 1}/{activities.length} <Glyph name="cycle" />
         </button>
       )}
     </NowBarShell>

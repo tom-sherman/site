@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+import { Glyph, type GlyphName } from "./Glyph";
 import { colors, fonts, fontSizes } from "./tokens.stylex";
 
 const styles = stylex.create({
@@ -43,7 +44,7 @@ export function Chip({
   children,
 }: {
   active?: boolean;
-  glyph?: string;
+  glyph?: GlyphName;
   count?: number;
   onClick?: () => void;
   children: ReactNode;
@@ -55,7 +56,7 @@ export function Chip({
       onClick={onClick}
       {...stylex.props(styles.chip, active && styles.active)}
     >
-      {glyph && <span aria-hidden>{glyph}</span>}
+      {glyph && <Glyph name={glyph} />}
       <span>{children}</span>
       {count !== undefined && (
         <span {...stylex.props(styles.count)}>{count}</span>

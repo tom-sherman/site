@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { StyleXStyles } from "@stylexjs/stylex";
 import type { ReactNode } from "react";
+import { Glyph, type GlyphName } from "./Glyph";
 import { colors, fonts, fontSizes, shadows } from "./tokens.stylex";
 
 const styles = stylex.create({
@@ -30,14 +31,16 @@ const styles = stylex.create({
     fontSize: fontSizes.micro,
     letterSpacing: "0.04em",
   },
+  title: {
+    display: "flex",
+    flexGrow: 1,
+    gap: 8,
+  },
   label: {
     textTransform: "uppercase",
   },
   meta: {
     color: colors.muted,
-  },
-  external: {
-    marginLeft: "auto",
   },
 });
 
@@ -68,18 +71,18 @@ export function CardHeader({
   label,
   meta,
 }: {
-  glyph: string;
+  glyph: GlyphName;
   label: string;
   meta?: string;
 }) {
   return (
     <div {...stylex.props(styles.header)}>
-      <span aria-hidden>{glyph}</span>
-      <span {...stylex.props(styles.label)}>{label}</span>
-      {meta && <span {...stylex.props(styles.meta)}>· {meta}</span>}
-      <span aria-hidden {...stylex.props(styles.external)}>
-        ↗
+      <Glyph name={glyph} />
+      <span {...stylex.props(styles.title)}>
+        <span {...stylex.props(styles.label)}>{label}</span>
+        {meta && <span {...stylex.props(styles.meta)}>· {meta}</span>}
       </span>
+      <Glyph name="external" />
     </div>
   );
 }

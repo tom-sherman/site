@@ -18,7 +18,6 @@ import type { Timestamp } from "@/lib/data/types";
 import {
   CATEGORIES,
   categoryOf,
-  GLYPHS,
   isHighPriority,
   isMediumPriority,
   type FeedCategory,
@@ -106,7 +105,7 @@ export function Feed({
     <section aria-label="Activity feed">
       <div {...stylex.props(styles.filters)}>
         <Chip
-          glyph={GLYPHS.all}
+          glyph="all"
           count={items.length}
           active={filter === "all"}
           onClick={() => setFilter("all")}

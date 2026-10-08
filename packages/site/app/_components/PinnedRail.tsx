@@ -2,11 +2,12 @@ import * as stylex from "@stylexjs/stylex";
 import x from "@stylexjs/atoms";
 import { Artwork } from "@/lib/components/Artwork";
 import { Card } from "@/lib/components/Card";
+import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Eyebrow, Rule, Tag } from "@/lib/components/Text";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { Timestamp } from "@/lib/data/types";
-import { GLYPHS, glyphOf, labelOf, type HighPriorityItem } from "@/lib/feed";
+import { glyphOf, labelOf, type HighPriorityItem } from "@/lib/feed";
 
 const styles = stylex.create({
   heading: {
@@ -85,9 +86,6 @@ const styles = stylex.create({
     borderBottomWidth: 1,
     borderBottomStyle: "dashed",
     borderBottomColor: colors.rule,
-  },
-  moreGlyph: {
-    fontFamily: fonts.mono,
     fontSize: fontSizes.label,
   },
   moreTitle: {
@@ -120,7 +118,9 @@ export function PinnedRail({
     <aside aria-labelledby="pinned-heading">
       <div {...stylex.props(styles.heading)}>
         <h2 id="pinned-heading" {...stylex.props(styles.headingText)}>
-          <Tag>{GLYPHS.pinned} Pinned</Tag>
+          <Tag>
+            <Glyph name="pinned" /> Pinned
+          </Tag>
         </h2>
         <Rule />
         <span {...stylex.props(styles.latest)}>latest</span>
@@ -133,7 +133,7 @@ export function PinnedRail({
             <div {...stylex.props(styles.cardBody)}>
               <div {...stylex.props(styles.cardMeta)}>
                 <span {...stylex.props(styles.ink)}>
-                  {glyphOf(item)} {labelOf(item)}
+                  <Glyph name={glyphOf(item)} /> {labelOf(item)}
                 </span>
                 <span {...stylex.props(styles.time)}>
                   <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
@@ -158,9 +158,7 @@ export function PinnedRail({
             {more.map((item) => (
               <li key={item.id}>
                 <a href={item.url} {...stylex.props(styles.moreItem)}>
-                  <span aria-hidden {...stylex.props(styles.moreGlyph)}>
-                    {glyphOf(item)}
-                  </span>
+                  <Glyph name={glyphOf(item)} />
                   <span {...stylex.props(styles.moreTitle)}>{item.title}</span>
                   <span {...stylex.props(styles.moreTime)}>
                     <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
