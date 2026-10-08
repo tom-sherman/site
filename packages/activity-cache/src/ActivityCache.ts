@@ -36,6 +36,9 @@ const fingerprintOf = (source: Source) =>
  * a process that crashes mid-refresh comes back to a backoff rather than
  * hitting upstream again immediately.
  *
+ * An append-only source's snapshots are merged into its rows instead, so
+ * what upstream stops serving is kept until retention prunes it.
+ *
  * While a source's snapshot is being fetched, its rows keep serving reads and
  * taking realtime writes. Those writes are also buffered and replayed on top
  * of the snapshot when it's swapped in, in one transaction. Buffering starts
@@ -152,6 +155,8 @@ export class ActivityCache extends Context.Service<
                 } else {
                   yield* store.replaceSource(source.name, {
                     activities: result.activities,
+                    // A rebuild can't keep rows built with the old fingerprint.
+                    keepExisting: source.appendOnly === true && !rebuild,
                     mutations,
                     fingerprint,
                     checkpoint: result.checkpoint,
@@ -164,7 +169,7 @@ export class ActivityCache extends Context.Service<
             yield* Effect.logInfo(
               result._tag === "Unchanged"
                 ? "Unchanged"
-                : `${rebuild ? "Rebuilt" : "Refreshed"} with ${result.activities.length} activities`,
+                : `${rebuild ? "Rebuilt" : source.appendOnly ? "Merged" : "Refreshed"} with ${result.activities.length} activities`,
             );
           }),
         ).pipe(

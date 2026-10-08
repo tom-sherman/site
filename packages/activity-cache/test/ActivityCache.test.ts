@@ -48,6 +48,7 @@ const snap = (
 const fakeSource = (name: string) => {
   const fake = {
     fingerprint: "v1",
+    appendOnly: false,
     calls: [] as Array<{ since: number; checkpoint: string | undefined }>,
     respond: (_: {
       since: number;
@@ -59,6 +60,9 @@ const fakeSource = (name: string) => {
     name,
     get fingerprint() {
       return fake.fingerprint;
+    },
+    get appendOnly() {
+      return fake.appendOnly;
     },
     snapshot: (options) =>
       Effect.suspend(() => {
@@ -242,6 +246,81 @@ describe("ActivityCache", () => {
       yield* cache.prune;
       assert.deepStrictEqual(yield* contents(cache), ["new=new"]);
       yield* stop;
+    }),
+  );
+});
+
+describe("ActivityCache with an append-only source", () => {
+  it.effect("keeps rows that upstream stopped serving", () =>
+    Effect.gen(function* () {
+      const a = fakeSource("a");
+      a.appendOnly = true;
+      a.respond = () =>
+        Effect.succeed(snap([activity("e2", 2000), activity("e1", 1000)], "1"));
+      const { cache, stop } = yield* boot(tempDb(), [a]);
+      yield* cache.refresh("a");
+
+      // `e1` fell out of upstream's window; `e2` changed.
+      a.respond = () =>
+        Effect.succeed(
+          snap([activity("e3", 3000), activity("e2", 2000, "v2")], "2"),
+        );
+      yield* cache.refresh("a");
+      assert.deepStrictEqual(yield* contents(cache), [
+        "e1=e1",
+        "e2=v2",
+        "e3=e3",
+      ]);
+
+      // Until it's older than the retention window.
+      yield* TestClock.adjust(RETENTION_MS + 1500);
+      yield* cache.prune;
+      assert.deepStrictEqual(yield* contents(cache), ["e2=v2", "e3=e3"]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("still lets realtime writes during a refresh win", () =>
+    Effect.gen(function* () {
+      const a = fakeSource("a");
+      a.appendOnly = true;
+      const { cache, stop } = yield* boot(tempDb(), [a]);
+      yield* cache.refresh("a");
+
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      a.respond = () =>
+        Deferred.succeed(started, undefined).pipe(
+          Effect.andThen(Deferred.await(release)),
+          Effect.as(snap([activity("x", 1, "v1"), activity("y")], "2")),
+        );
+      const refreshing = yield* Effect.forkChild(cache.refresh("a"));
+      yield* Deferred.await(started);
+      yield* cache.apply("a", [
+        Mutation.upsert(activity("x", 1, "v2")),
+        Mutation.delete("y"),
+      ]);
+      yield* Deferred.succeed(release, undefined);
+      yield* Fiber.join(refreshing);
+      assert.deepStrictEqual(yield* contents(cache), ["x=v2"]);
+      yield* stop;
+    }),
+  );
+
+  it.effect("replaces its rows when the fingerprint changes", () =>
+    Effect.gen(function* () {
+      const db = tempDb();
+      const a = fakeSource("a");
+      a.appendOnly = true;
+      a.respond = () => Effect.succeed(snap([activity("v1-row")], "1"));
+      const first = yield* start(db, [a]);
+      yield* first.stop;
+
+      a.fingerprint = "v2";
+      a.respond = () => Effect.succeed(snap([activity("v2-row")], "2"));
+      const second = yield* start(db, [a]);
+      assert.deepStrictEqual(yield* contents(second.cache), ["v2-row=v2-row"]);
+      yield* second.stop;
     }),
   );
 });
