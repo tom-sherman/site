@@ -74,7 +74,7 @@ A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and 
 
 ### Append-only sources
 
-Some upstreams never delete anything, but only serve their latest items: GitHub serves at most 300 events. A source that sets `appendOnly` has its snapshots merged into its rows instead of replacing them, so what drops out of upstream's window stays until it's older than the retention window. A rebuild (fingerprint change) still replaces them, since the old rows were built with the old mapping; anything upstream no longer serves is lost then.
+Some upstreams never delete anything, but only serve their latest items: GitHub serves the last 30 days of events, but at most 300. A source that sets `appendOnly` has its snapshots merged into its rows instead of replacing them, so what drops out of upstream's window stays until it's older than the retention window. A rebuild (fingerprint change) still replaces them, since the old rows were built with the old mapping; anything upstream no longer serves is lost then.
 
 ### Roll-ups
 
@@ -89,8 +89,9 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 `src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it.
 
-- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the latest 300 events, so the source is [append-only](#append-only-sources): events that drop out are kept until they're 30 days old. Events that shift onto the next page while paging are deduplicated.
+- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the last 30 days of events, and at most 300 of them, so the source is [append-only](#append-only-sources): in a month with more than 300, the older ones drop out early and are kept until they're 30 days old. Otherwise GitHub's window and the retention window line up, so a rebuild usually loses nothing. Events that shift onto the next page while paging are deduplicated.
 - **Token.** `GITHUB_TOKEN` is optional; any token works, it needs no scopes. Without one, GitHub allows 60 requests an hour per IP and even a `304` counts, so the source polls at most every 5 minutes instead of at `X-Poll-Interval` (usually 60s). With one, `304`s are free.
+- **Latency.** GitHub says events can take anywhere from 30s to 6h to show up, so a fresh push won't always be in the feed straight away.
 - **Rate limits.** A `403`/`429` with `Retry-After`, or with `X-RateLimit-Remaining: 0` and `X-RateLimit-Reset`, becomes the source's next attempt time.
 
 ## Adding a data type

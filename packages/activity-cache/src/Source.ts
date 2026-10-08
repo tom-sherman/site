@@ -58,10 +58,10 @@ export interface Source {
   readonly fingerprint: string;
   /**
    * Upstream never deletes anything, but stops serving older items (GitHub
-   * only serves the latest 300 events). Snapshots are then merged into the
-   * stored rows rather than replacing them, so what falls out of upstream's
-   * window stays until it's older than the retention window. A rebuild
-   * (fingerprint change) still replaces them.
+   * serves the last 30 days of events, but at most 300). Snapshots are then
+   * merged into the stored rows rather than replacing them, so what falls
+   * out of upstream's window stays until it's older than the retention
+   * window. A rebuild (fingerprint change) still replaces them.
    */
   readonly appendOnly?: boolean | undefined;
   /**
