@@ -11,6 +11,7 @@
     "generate-signing-key": "node scripts/generate-signing-key.mts"
   },
   "dependencies": {
+    "@atcute/bluesky-richtext-segmenter": "^3.0.2",
     "@atproto/lex": "catalog:",
     "@repo/activity-cache": "workspace:*",
     "@repo/atproto-client": "workspace:*",

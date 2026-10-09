@@ -1,7 +1,7 @@
 import "server-only";
 import { cacheLife } from "next/cache";
 import { getActivityFeedItems } from "./activity";
-import type { ImageRef, Person, Timestamp } from "./types";
+import type { Facet, ImageRef, Person, Timestamp } from "./types";
 
 interface FeedItemBase {
   id: string;
@@ -23,6 +23,7 @@ export interface ThreadItem extends FeedItemBase {
   /** Short title used where the full first post won't fit (pinned rail). */
   title: string;
   text: string;
+  facets?: Facet[];
   author: Person;
   postCount: number;
   image?: ImageRef;
@@ -49,6 +50,7 @@ export interface PostItem extends FeedItemBase {
   network: "bluesky" | "x";
   author: Person;
   text: string;
+  facets?: Facet[];
   likes: number;
 }
 
@@ -57,6 +59,7 @@ export interface ReplyItem extends FeedItemBase {
   kind: "reply";
   network: "bluesky";
   text: string;
+  facets?: Facet[];
   /**
    * Who it replies to, or for a reply to one of my own posts, how that post
    * starts; and where the post it replies to is. Missing when it couldn't be

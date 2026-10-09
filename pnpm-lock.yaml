@@ -269,6 +269,9 @@ importers:
 
   packages/site:
     dependencies:
+      '@atcute/bluesky-richtext-segmenter':
+        specifier: ^3.0.2
+        version: 3.0.2
       '@atproto/lex':
         specifier: 'catalog:'
         version: 0.3.14
@@ -335,6 +338,9 @@ importers:
         version: 7.0.2
 
 packages:
+
+  '@atcute/bluesky-richtext-segmenter@3.0.2':
+    resolution: {integrity: sha512-LXsUuElLQ/gQe2g04SzgTeEbSwhcnmswioGdneve8e3vE+FU353EjuEVIsnA/H5rnGeLswLdrua7Io1twezynA==}
 
   '@atproto-labs/did-resolver@0.3.10':
     resolution: {integrity: sha512-SPWOcJG/rsqrp2XQZQe8ctC9Y604mivZfXTrCsXbo7dXeAukYSgljPPa/7yWAlTvCbqUSNKScVEWpdCyel/nFw==}
@@ -3045,6 +3051,8 @@ packages:
     resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
 snapshots:
+
+  '@atcute/bluesky-richtext-segmenter@3.0.2': {}
 
   '@atproto-labs/did-resolver@0.3.10':
     dependencies:

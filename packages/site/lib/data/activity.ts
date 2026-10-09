@@ -143,6 +143,7 @@ function postItem(post: Post, hydration: Hydration): PostItem | ReplyItem {
       publishedAt: post.timestamp,
       network: "bluesky",
       text: post.data.text,
+      facets: post.data.facets,
       replyTo: replyTo(post.data.reply.parent.uri, hydration),
     };
   }
@@ -155,6 +156,7 @@ function postItem(post: Post, hydration: Hydration): PostItem | ReplyItem {
     network: "bluesky",
     author: view ? personOf(view.author) : TOM,
     text: post.data.text,
+    facets: post.data.facets,
     likes: view?.likeCount ?? 0,
   };
 }
@@ -206,6 +208,7 @@ function threadItem(
     network: "bluesky",
     title: threadTitle(thread.data.title, root.data.text),
     text: root.data.text,
+    facets: root.data.facets,
     author: view ? personOf(view.author) : TOM,
     postCount: thread.members.length,
     image: view && imageOf(view),

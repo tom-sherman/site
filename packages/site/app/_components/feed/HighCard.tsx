@@ -3,6 +3,7 @@ import { Artwork } from "@/lib/components/Artwork";
 import { Avatar, AvatarStack } from "@/lib/components/Avatar";
 import { Card, CardHeader } from "@/lib/components/Card";
 import { Glyph } from "@/lib/components/Glyph";
+import { RichText } from "@/lib/components/RichText";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { BlogPostItem, FilmReviewItem, ThreadItem } from "@/lib/data/feed";
 import {
@@ -195,7 +196,10 @@ function ThreadBody({ item }: { item: ThreadItem }) {
           <span {...stylex.props(styles.handle)}>{item.author.handle}</span>
         </span>
       </div>
-      <p {...stylex.props(styles.threadText)}>{item.text}</p>
+      <p {...stylex.props(styles.threadText)}>
+        {/* The whole card links to the thread, and links can't nest. */}
+        <RichText text={item.text} facets={item.facets} linked={false} />
+      </p>
       {item.image && (
         <Artwork
           image={item.image}

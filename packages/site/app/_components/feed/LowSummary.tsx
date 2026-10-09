@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Artwork } from "@/lib/components/Artwork";
 import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
+import { RichText } from "@/lib/components/RichText";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FeedItem } from "@/lib/data/feed";
 import type { Timestamp } from "@/lib/data/types";
@@ -211,8 +212,10 @@ function SummaryLine({
 }
 
 /** Text an item hides behind a view button: a reply's. */
-function bodyOf(item: FeedItem): string | undefined {
-  return item.kind === "reply" && item.text.trim() ? item.text : undefined;
+function bodyOf(item: FeedItem): ReactNode {
+  return item.kind === "reply" && item.text.trim() ? (
+    <RichText text={item.text} facets={item.facets} />
+  ) : undefined;
 }
 
 function Toggle({

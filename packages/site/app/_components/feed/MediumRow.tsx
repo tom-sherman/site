@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Artwork } from "@/lib/components/Artwork";
 import { Avatar } from "@/lib/components/Avatar";
 import { Glyph } from "@/lib/components/Glyph";
+import { RichText } from "@/lib/components/RichText";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FilmRatingItem, PostItem } from "@/lib/data/feed";
 import {
@@ -82,11 +83,13 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
           </a>
         </div>
         <div {...stylex.props(styles.text)}>
-          {item.kind === "post"
-            ? item.text
-            : item.year !== undefined
-              ? `${item.title} (${item.year})`
-              : item.title}
+          {item.kind === "post" ? (
+            <RichText text={item.text} facets={item.facets} />
+          ) : item.year !== undefined ? (
+            `${item.title} (${item.year})`
+          ) : (
+            item.title
+          )}
         </div>
       </div>
       {item.kind === "post" ? (
