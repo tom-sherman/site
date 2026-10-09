@@ -27,7 +27,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, keyed by `type`, so `data` is typed per type:
 
-- **atproto records** (`app.bsky.feed.post`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
+- **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
 - **GitHub events** (`github.PushEvent`, …): `data` is `{ actor, repo, payload }`, with only the payload fields the schema lists.
 
 `type` filters only accept these types. Stored rows are decoded into the union when they're served. One that doesn't decode is logged and left out, and the cursor still moves past it.

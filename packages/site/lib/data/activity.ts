@@ -12,6 +12,7 @@ import {
 import type {
   FeedItem,
   GitHubEventItem,
+  LikeItem,
   PostItem,
   ThreadItem,
   TrackItem,
@@ -24,11 +25,15 @@ import { httpUrl, hueOf, truncate } from "./util";
 type Of<T extends ActivityItem["type"]> = Extract<ActivityItem, { type: T }>;
 type Post = Of<"app.bsky.feed.post">;
 type Thread = Of<"is.sherman.unspecced.thread">;
+type Like = Of<"app.bsky.feed.like">;
 type Play = Of<"fm.teal.feed.play">;
 type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
 
 /** How much of my own post a self-reply quotes. */
 const QUOTE_LENGTH = 40;
+
+/** How much of a liked post its line quotes; the line cuts it short anyway. */
+const LIKE_QUOTE_LENGTH = 120;
 
 /** The cache's page size limit; its 30 days is usually one page. */
 const PAGE_SIZE = 500;
@@ -57,7 +62,7 @@ export async function getActivityFeedItems(): Promise<FeedItem[]> {
           : [];
     for (const post of posts) texts.set(post.id, post.data.text);
   }
-  return activity.map((item) => toFeedItem(item, { views, texts }));
+  return activity.flatMap((item) => toFeedItem(item, { views, texts }) ?? []);
 }
 
 interface Hydration {
@@ -80,12 +85,18 @@ async function getAllActivity(): Promise<ActivityItem[]> {
   return items;
 }
 
-function toFeedItem(item: ActivityItem, hydration: Hydration): FeedItem {
+/** `undefined` for activity the feed leaves out. */
+function toFeedItem(
+  item: ActivityItem,
+  hydration: Hydration,
+): FeedItem | undefined {
   switch (item.type) {
     case "app.bsky.feed.post":
       return postItem(item, hydration);
     case "is.sherman.unspecced.thread":
       return threadItem(item, hydration.views);
+    case "app.bsky.feed.like":
+      return likeItem(item, hydration.views);
     case "fm.teal.feed.play":
       return trackItem(item);
     default:
@@ -93,7 +104,10 @@ function toFeedItem(item: ActivityItem, hydration: Hydration): FeedItem {
   }
 }
 
-/** Posts and thread posts, plus the posts they reply to, for who they're replying to. */
+/**
+ * Posts and thread posts, plus the posts they reply to, for who they're
+ * replying to, and the posts I liked.
+ */
 function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   const uris = new Set<string>();
   for (const item of activity) {
@@ -102,6 +116,11 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
       if (item.data.reply) uris.add(item.data.reply.parent.uri);
     } else if (item.type === "is.sherman.unspecced.thread") {
       for (const post of item.members) uris.add(post.id);
+    } else if (
+      item.type === "app.bsky.feed.like" &&
+      isPostUri(item.data.subject.uri)
+    ) {
+      uris.add(item.data.subject.uri);
     }
   }
   return [...uris];
@@ -178,6 +197,36 @@ function threadItem(
     reposts: view?.repostCount ?? 0,
     likes: view?.likeCount ?? 0,
   };
+}
+
+/**
+ * A like of a post. Likes of anything else (feeds, lists, …) are left out.
+ * Without the AppView, or once the post's gone, it's just "Liked a post".
+ */
+function likeItem(
+  like: Like,
+  views: ReadonlyMap<string, PostView>,
+): LikeItem | undefined {
+  const { uri } = like.data.subject;
+  if (!isPostUri(uri)) return undefined;
+  const view = views.get(uri);
+  return {
+    kind: "like",
+    id: like.id,
+    url: bskyUrl(uri),
+    publishedAt: like.timestamp,
+    network: "bluesky",
+    post: view && {
+      author: personOf(view.author),
+      quote: app.bsky.feed.post.$matches(view.record)
+        ? truncate(view.record.text, LIKE_QUOTE_LENGTH)
+        : "",
+    },
+  };
+}
+
+function isPostUri(uri: string) {
+  return uri.split("/")[3] === "app.bsky.feed.post";
 }
 
 /**

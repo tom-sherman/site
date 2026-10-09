@@ -30,6 +30,7 @@ export function categoryOf(item: FeedItem): FeedCategory {
       return "writing";
     case "thread":
     case "post":
+    case "like":
       return "posts";
     case "film-review":
     case "film-rating":
@@ -53,6 +54,7 @@ export function priorityOf(item: FeedItem): Priority {
     case "post":
     case "film-rating":
       return "medium";
+    case "like":
     case "track":
     case "game-session":
     case "episode":
@@ -80,7 +82,7 @@ export function isMediumPriority(item: FeedItem): item is MediumPriorityItem {
 }
 
 export function glyphOf(item: FeedItem): GlyphName {
-  if (item.kind === "post" || item.kind === "thread") {
+  if (item.kind === "post" || item.kind === "thread" || item.kind === "like") {
     return item.network;
   }
   return CATEGORIES.find((c) => c.id === categoryOf(item))!.glyph;
@@ -107,6 +109,11 @@ export function labelOf(item: FeedItem): string {
       return "Film review";
     case "post":
       return item.network === "x" ? "X" : "Bluesky";
+    case "like":
+      if (!item.post) return "Liked a post";
+      return item.post.quote
+        ? `Liked ${item.post.author.handle}: “${item.post.quote}”`
+        : `Liked a post by ${item.post.author.handle}`;
     case "film-rating":
       return "Rated on Letterboxd";
     case "track":

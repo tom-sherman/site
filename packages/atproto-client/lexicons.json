@@ -2,6 +2,7 @@
   "version": 1,
   "lexicons": [
     "app.bsky.feed.getPosts",
+    "app.bsky.feed.like",
     "app.bsky.feed.post",
     "com.atproto.sync.getLatestCommit",
     "com.atproto.sync.getRepo",
@@ -58,6 +59,10 @@
     "app.bsky.feed.getPosts": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.getPosts",
       "cid": "bafyreihy4tanaizkynghab46n3qztsspvoaqtbrkzinvxi4igeylg5ghji"
+    },
+    "app.bsky.feed.like": {
+      "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.like",
+      "cid": "bafyreiasvjidnd3sazbx46rzgipfkpejq4mgfuzwv2xrdaesp64t4dl2ry"
     },
     "app.bsky.feed.post": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.post",

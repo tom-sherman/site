@@ -99,6 +99,7 @@ const styles = stylex.create({
 
 /** Low-priority kinds, in the order their lines appear. */
 const KINDS = [
+  "like",
   "track",
   "game-session",
   "episode",
@@ -108,7 +109,7 @@ const KINDS = [
 export type LowKind = (typeof KINDS)[number];
 
 /**
- * All of a day's passive activity (songs, games, episodes, GitHub events)
+ * All of a day's passive activity (likes, songs, games, episodes, GitHub events)
  * collapsed into one line per kind, each showing its newest item, e.g.
  * `♫ Song — Artist +13 more`, and opening on its own to show them all.
  */
@@ -201,7 +202,9 @@ function Swatch({ item }: { item: FeedItem }) {
       ? item.art
       : item.kind === "game-session"
         ? item.cover
-        : undefined;
+        : item.kind === "like"
+          ? item.post?.author.avatar
+          : undefined;
   if (!art) return <span {...stylex.props(styles.swatch, styles.noArt)} />;
   return <Artwork image={art} variant="cover" style={styles.swatch} />;
 }

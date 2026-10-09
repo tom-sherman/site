@@ -160,10 +160,10 @@ describe("GET /activity", () => {
 
   it.live("leaves out entries it can't serve, and still pages on", () =>
     Effect.promise(async () => {
-      const like: FeedEntry = {
-        id: uri("app.bsky.feed.like", "like"),
+      const repost: FeedEntry = {
+        id: uri("app.bsky.feed.repost", "repost"),
         timestamp: T - 3000,
-        type: "app.bsky.feed.like",
+        type: "app.bsky.feed.repost",
         data: {},
       };
       const invalid: FeedEntry = {
@@ -171,7 +171,7 @@ describe("GET /activity", () => {
         data: { $type: "app.bsky.feed.post", text: "no createdAt" },
       };
       const { body } = await request(
-        [play, like, invalid],
+        [play, repost, invalid],
         "/activity?limit=3",
       );
       assert.deepStrictEqual(body.items, [play]);
@@ -183,7 +183,7 @@ describe("GET /activity", () => {
     Effect.promise(async () => {
       const served = await request([], "/activity?type=fm.teal.feed.play");
       assert.strictEqual(served.status, 200);
-      const unserved = await request([], "/activity?type=app.bsky.feed.like");
+      const unserved = await request([], "/activity?type=app.bsky.feed.repost");
       assert.strictEqual(unserved.status, 400);
     }),
   );

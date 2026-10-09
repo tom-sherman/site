@@ -107,5 +107,6 @@ export const collections: ReadonlyArray<CollectionHandler> = [
     timestamp: (r) => r.createdAt,
     rollup: (thread) => ({ collects: thread.subject.uri }),
   }),
+  recordCollection(app.bsky.feed.like, { timestamp: (r) => r.createdAt }),
   recordCollection(fm.teal.feed.play, { timestamp: (r) => r.playedTime }),
 ];

@@ -26,6 +26,7 @@ const record = <S extends RecordSchema>(schema: Main<S>) =>
   });
 
 export const PostItem = record(app.bsky.feed.post);
+export const LikeItem = record(app.bsky.feed.like);
 export const PlayItem = record(fm.teal.feed.play);
 
 /** A thread called out as writing, served in place of its posts. */
@@ -121,6 +122,7 @@ export const GitHubItem = Schema.Union([
 export const ActivityItem = Schema.Union([
   PostItem,
   ThreadItem,
+  LikeItem,
   PlayItem,
   ...GitHubItem.members,
 ]);

@@ -75,11 +75,23 @@ const defaultWrites: ReadonlyArray<Write> = [
     record: { $type: "fm.teal.feed.play", trackName: "Acolyte" },
   },
   {
-    // Not a cached collection.
     collection: "app.bsky.feed.like",
-    rkey: "3mxafgjedwc2a",
+    rkey: "3mxafgjedwc2b",
     record: {
       $type: "app.bsky.feed.like",
+      subject: {
+        uri: "at://did:plc:someoneelsesomeoneelse0/app.bsky.feed.post/3mxafgjedwa2a",
+        cid: "bafyreia7rgxu7467phwpcgzaw62l5bzmxufkpikrc5zm4q3xhjmuhq4pti",
+      },
+      createdAt: new Date(NOW - DAY).toISOString(),
+    },
+  },
+  {
+    // Not a cached collection.
+    collection: "app.bsky.feed.repost",
+    rkey: "3mxafgjedwc2a",
+    record: {
+      $type: "app.bsky.feed.repost",
       subject: { uri: "at://x", cid: "y" },
       createdAt: new Date(NOW).toISOString(),
     },
@@ -191,6 +203,7 @@ describe("AtprotoRepo", () => {
 
       const byId = new Map(result.activities.map((a) => [a.id, a]));
       assert.deepStrictEqual([...byId.keys()].sort(), [
+        `at://${DID}/app.bsky.feed.like/3mxafgjedwc2b`,
         `at://${DID}/app.bsky.feed.post/3mxafgjedwc2y`,
         `at://${DID}/fm.teal.feed.play/3mxafgjedwc2z`,
       ]);
@@ -199,6 +212,10 @@ describe("AtprotoRepo", () => {
       assert.strictEqual(post.type, "app.bsky.feed.post");
       assert.strictEqual(post.timestamp, NOW - DAY);
       assert.deepInclude(post.data as object, { text: "recent" });
+
+      const like = byId.get(`at://${DID}/app.bsky.feed.like/3mxafgjedwc2b`)!;
+      assert.strictEqual(like.type, "app.bsky.feed.like");
+      assert.strictEqual(like.timestamp, NOW - DAY);
 
       const play = byId.get(`at://${DID}/fm.teal.feed.play/3mxafgjedwc2z`)!;
       // 3mxafgjedwc2z is a TID from 2026-10-06.
@@ -381,7 +398,7 @@ describe("AtprotoRepo", () => {
       );
       assert.strictEqual(
         source.fingerprint,
-        `did=${DID};collections=app.bsky.feed.post@2,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
+        `did=${DID};collections=app.bsky.feed.like@1,app.bsky.feed.post@2,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
       );
     }),
   );
@@ -493,8 +510,8 @@ describe("AtprotoRepo follow", () => {
                 },
               }),
               // Not cached, but the rev still moves on.
-              put(15, "app.bsky.feed.like", "3mxafgjedwc2a", {
-                $type: "app.bsky.feed.like",
+              put(15, "app.bsky.feed.repost", "3mxafgjedwc2a", {
+                $type: "app.bsky.feed.repost",
               }),
               // Edited, but older than what's kept.
               put(
@@ -595,8 +612,8 @@ describe("AtprotoRepo follow", () => {
           options.cursor === 5
             ? Stream.fail(new CursorTooOld({ cursor: 5 }))
             : Stream.make(
-                put(31, "app.bsky.feed.like", "3mxafgjedwc2a", {
-                  $type: "app.bsky.feed.like",
+                put(31, "app.bsky.feed.repost", "3mxafgjedwc2a", {
+                  $type: "app.bsky.feed.repost",
                 }),
               ),
         "5",
@@ -620,8 +637,8 @@ describe("AtprotoRepo follow", () => {
       const { exit, log } = yield* follow(
         () =>
           Stream.make(
-            put(41, "app.bsky.feed.like", "3mxafgjedwc2a", {
-              $type: "app.bsky.feed.like",
+            put(41, "app.bsky.feed.repost", "3mxafgjedwc2a", {
+              $type: "app.bsky.feed.repost",
             }),
           ),
         "40",

@@ -57,6 +57,17 @@ export interface PostItem extends FeedItemBase {
   );
 }
 
+/** A Bluesky post I liked. */
+export interface LikeItem extends FeedItemBase {
+  kind: "like";
+  network: "bluesky";
+  /**
+   * Who wrote the liked post and how it starts (empty for an image-only
+   * post). Missing when it couldn't be hydrated.
+   */
+  post?: { author: Person; quote: string };
+}
+
 export interface FilmRatingItem extends FeedItemBase {
   kind: "film-rating";
   title: string;
@@ -96,6 +107,7 @@ export type FeedItem =
   | ThreadItem
   | FilmReviewItem
   | PostItem
+  | LikeItem
   | FilmRatingItem
   | TrackItem
   | GameSessionItem
