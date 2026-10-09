@@ -30,6 +30,7 @@ export function categoryOf(item: FeedItem): FeedCategory {
       return "writing";
     case "thread":
     case "post":
+    case "reply":
     case "like":
       return "posts";
     case "film-review":
@@ -54,6 +55,7 @@ export function priorityOf(item: FeedItem): Priority {
     case "post":
     case "film-rating":
       return "medium";
+    case "reply":
     case "like":
     case "track":
     case "game-session":
@@ -82,9 +84,8 @@ export function isMediumPriority(item: FeedItem): item is MediumPriorityItem {
 }
 
 export function glyphOf(item: FeedItem): GlyphName {
-  if (item.kind === "post" || item.kind === "thread" || item.kind === "like") {
-    return item.network;
-  }
+  if (item.kind === "reply") return "reply";
+  if ("network" in item) return item.network;
   return CATEGORIES.find((c) => c.id === categoryOf(item))!.glyph;
 }
 
@@ -109,6 +110,12 @@ export function labelOf(item: FeedItem): string {
       return "Film review";
     case "post":
       return item.network === "x" ? "X" : "Bluesky";
+    case "reply":
+      return !item.replyTo
+        ? "Replied to a post"
+        : item.replyTo.kind === "self"
+          ? `Replied to “${item.replyTo.quote}”`
+          : `Replied to ${item.replyTo.person.handle}`;
     case "like":
       return item.author
         ? `Liked a post by ${item.author.handle}`

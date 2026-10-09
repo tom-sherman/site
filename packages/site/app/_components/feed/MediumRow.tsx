@@ -44,15 +44,6 @@ const styles = stylex.create({
       ":hover": "underline",
     },
   },
-  replyTo: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    color: {
-      default: "inherit",
-      ":hover": colors.ink,
-    },
-  },
   text: {
     marginTop: 4,
     maxWidth: "60ch",
@@ -68,47 +59,20 @@ const styles = stylex.create({
   },
 });
 
-/** Short posts, replies and film ratings: a plain row, no card, no media. */
+/** Short posts and film ratings: a plain row, no card, no media. */
 export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
   return (
     <div {...stylex.props(styles.row)}>
       {item.kind === "film-rating" ? (
         <Artwork image={item.poster} variant="poster" style={styles.thumb} />
       ) : (
-        // A reply shows who it's replying to, next to their handle instead.
-        !item.replyTo && (
-          <Avatar name={item.author.name} image={item.author.avatar} />
-        )
+        <Avatar name={item.author.name} image={item.author.avatar} />
       )}
       <div {...stylex.props(styles.main)}>
         <div {...stylex.props(styles.meta)}>
           <a href={item.url} {...stylex.props(styles.ink, styles.link)}>
             <Glyph name={glyphOf(item)} /> {labelOf(item)}
           </a>
-          {item.kind === "post" && item.replyTo && (
-            <a
-              href={item.replyTo.url}
-              {...stylex.props(styles.replyTo, styles.link)}
-            >
-              ↳ replying to
-              {item.replyTo.kind === "self" ? (
-                <span {...stylex.props(styles.ink)}>
-                  “{item.replyTo.quote}”
-                </span>
-              ) : (
-                <>
-                  <Avatar
-                    name={item.replyTo.person.name}
-                    image={item.replyTo.person.avatar}
-                    size="xs"
-                  />
-                  <span {...stylex.props(styles.ink)}>
-                    {item.replyTo.person.handle}
-                  </span>
-                </>
-              )}
-            </a>
-          )}
         </div>
         <div {...stylex.props(styles.text)}>
           {item.kind === "post" ? item.text : `${item.title} (${item.year})`}

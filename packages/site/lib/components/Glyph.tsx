@@ -7,6 +7,7 @@ const GLYPHS = {
   writing: "¶",
   bluesky: "✱",
   x: "✕",
+  reply: "↳",
   film: "◐",
   music: "♫",
   games: "▶",

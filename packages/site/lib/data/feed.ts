@@ -48,9 +48,17 @@ export interface PostItem extends FeedItemBase {
   author: Person;
   text: string;
   likes: number;
+}
+
+/** A Bluesky post of mine replying to another post. */
+export interface ReplyItem extends FeedItemBase {
+  kind: "reply";
+  network: "bluesky";
+  text: string;
   /**
    * Who it replies to, or for a reply to one of my own posts, how that post
-   * starts; and where the post it replies to is.
+   * starts; and where the post it replies to is. Missing when it couldn't be
+   * hydrated.
    */
   replyTo?: { url: string } & (
     { kind: "person"; person: Person } | { kind: "self"; quote: string }
@@ -104,6 +112,7 @@ export type FeedItem =
   | ThreadItem
   | FilmReviewItem
   | PostItem
+  | ReplyItem
   | LikeItem
   | FilmRatingItem
   | TrackItem

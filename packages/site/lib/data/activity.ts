@@ -14,6 +14,7 @@ import type {
   GitHubEventItem,
   LikeItem,
   PostItem,
+  ReplyItem,
   ThreadItem,
   TrackItem,
 } from "./feed";
@@ -102,15 +103,14 @@ function toFeedItem(
 }
 
 /**
- * Posts and thread posts, plus the posts they reply to, for who they're
- * replying to, and the posts I liked.
+ * Posts and thread posts, the posts replies reply to (for who they're
+ * replying to), and the posts I liked.
  */
 function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   const uris = new Set<string>();
   for (const item of activity) {
     if (item.type === "app.bsky.feed.post") {
-      uris.add(item.id);
-      if (item.data.reply) uris.add(item.data.reply.parent.uri);
+      uris.add(item.data.reply ? item.data.reply.parent.uri : item.id);
     } else if (item.type === "is.sherman.unspecced.thread") {
       for (const post of item.members) uris.add(post.id);
     } else if (
@@ -123,7 +123,18 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   return [...uris];
 }
 
-function postItem(post: Post, hydration: Hydration): PostItem {
+function postItem(post: Post, hydration: Hydration): PostItem | ReplyItem {
+  if (post.data.reply) {
+    return {
+      kind: "reply",
+      id: post.id,
+      url: bskyUrl(post.id),
+      publishedAt: post.timestamp,
+      network: "bluesky",
+      text: post.data.text,
+      replyTo: replyTo(post.data.reply.parent.uri, hydration),
+    };
+  }
   const view = hydration.views.get(post.id);
   return {
     kind: "post",
@@ -134,7 +145,6 @@ function postItem(post: Post, hydration: Hydration): PostItem {
     author: view ? personOf(view.author) : TOM,
     text: post.data.text,
     likes: view?.likeCount ?? 0,
-    replyTo: post.data.reply && replyTo(post.data.reply.parent.uri, hydration),
   };
 }
 
@@ -146,7 +156,7 @@ function postItem(post: Post, hydration: Hydration): PostItem {
 function replyTo(
   uri: string,
   { views, texts }: Hydration,
-): PostItem["replyTo"] {
+): ReplyItem["replyTo"] {
   const parent = views.get(uri);
   if (uri.split("/")[2] === DID) {
     const text =
