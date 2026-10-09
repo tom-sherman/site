@@ -32,9 +32,6 @@ type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
 /** How much of my own post a self-reply quotes. */
 const QUOTE_LENGTH = 40;
 
-/** How much of a liked post its line quotes; the line cuts it short anyway. */
-const LIKE_QUOTE_LENGTH = 120;
-
 /** The cache's page size limit; its 30 days is usually one page. */
 const PAGE_SIZE = 500;
 
@@ -216,12 +213,7 @@ function likeItem(
     url: bskyUrl(uri),
     publishedAt: like.timestamp,
     network: "bluesky",
-    post: view && {
-      author: personOf(view.author),
-      quote: app.bsky.feed.post.$matches(view.record)
-        ? truncate(view.record.text, LIKE_QUOTE_LENGTH)
-        : "",
-    },
+    author: view && personOf(view.author),
   };
 }
 

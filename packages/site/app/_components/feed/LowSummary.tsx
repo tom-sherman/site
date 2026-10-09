@@ -203,7 +203,7 @@ function Swatch({ item }: { item: FeedItem }) {
       : item.kind === "game-session"
         ? item.cover
         : item.kind === "like"
-          ? item.post?.author.avatar
+          ? item.author?.avatar
           : undefined;
   if (!art) return <span {...stylex.props(styles.swatch, styles.noArt)} />;
   return <Artwork image={art} variant="cover" style={styles.swatch} />;

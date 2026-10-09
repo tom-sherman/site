@@ -61,11 +61,8 @@ export interface PostItem extends FeedItemBase {
 export interface LikeItem extends FeedItemBase {
   kind: "like";
   network: "bluesky";
-  /**
-   * Who wrote the liked post and how it starts (empty for an image-only
-   * post). Missing when it couldn't be hydrated.
-   */
-  post?: { author: Person; quote: string };
+  /** Who wrote the liked post; missing when it couldn't be hydrated. */
+  author?: Person;
 }
 
 export interface FilmRatingItem extends FeedItemBase {

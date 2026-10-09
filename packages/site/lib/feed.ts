@@ -110,10 +110,9 @@ export function labelOf(item: FeedItem): string {
     case "post":
       return item.network === "x" ? "X" : "Bluesky";
     case "like":
-      if (!item.post) return "Liked a post";
-      return item.post.quote
-        ? `Liked ${item.post.author.handle}: “${item.post.quote}”`
-        : `Liked a post by ${item.post.author.handle}`;
+      return item.author
+        ? `Liked a post by ${item.author.handle}`
+        : "Liked a post";
     case "film-rating":
       return "Rated on Letterboxd";
     case "track":
