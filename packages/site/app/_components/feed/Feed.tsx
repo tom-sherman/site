@@ -1,66 +1,31 @@
-"use client";
-
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
-import { Chip } from "@/lib/components/Chip";
+import type { ReactNode } from "react";
 import { RelativeTime } from "@/lib/components/RelativeTime";
-import { Rule, TextLink } from "@/lib/components/Text";
+import { TextLink } from "@/lib/components/Text";
 import { TimelineRow } from "@/lib/components/Timeline";
-import {
-  breakpoints,
-  colors,
-  fonts,
-  fontSizes,
-  layout,
-} from "@/lib/components/tokens.stylex";
+import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FeedItem } from "@/lib/data/feed";
 import type { Timestamp } from "@/lib/data/types";
 import {
-  CATEGORIES,
   categoryOf,
   isHighPriority,
   isMediumPriority,
-  type FeedCategory,
   type HighPriorityItem,
   type MediumPriorityItem,
 } from "@/lib/feed";
-import { dayNumber, formatDayLabel, formatShortDate } from "@/lib/time";
-import { useNow } from "@/lib/use-now";
+import { dayNumber, formatShortDate } from "@/lib/time";
+import { FilterSwitch, type Filter } from "./FeedFilter";
+import {
+  FeedView,
+  type CategoryCounts,
+  type FeedDay,
+  type FeedEntry,
+} from "./FeedView";
 import { HighCard } from "./HighCard";
-import { LowSummary, type LowKind } from "./LowSummary";
+import { LowSummary } from "./LowSummary";
 import { MediumRow } from "./MediumRow";
 
 const styles = stylex.create({
-  filters: {
-    position: "sticky",
-    top: layout.nowBarHeight,
-    zIndex: 10,
-    display: "flex",
-    flexWrap: {
-      default: "wrap",
-      [breakpoints.phone]: "nowrap",
-    },
-    gap: 6,
-    overflowX: "auto",
-    scrollbarWidth: "none",
-    paddingBlock: 16,
-    backgroundColor: colors.page,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: colors.rule,
-  },
-  dayTitle: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  },
-  dayLabel: {
-    fontSize: "inherit",
-    fontWeight: 500,
-  },
-  dayCount: {
-    color: colors.muted,
-  },
   older: {
     paddingTop: 20,
     fontFamily: fonts.mono,
@@ -68,19 +33,6 @@ const styles = stylex.create({
     color: colors.muted,
   },
 });
-
-type Filter = FeedCategory | "all";
-
-type Entry =
-  | { type: "high"; item: HighPriorityItem }
-  | { type: "medium"; item: MediumPriorityItem }
-  | { type: "low"; items: FeedItem[] };
-
-interface Day {
-  day: number;
-  items: FeedItem[];
-  entries: Entry[];
-}
 
 export function Feed({
   items,
@@ -92,134 +44,18 @@ export function Feed({
   asOf: Timestamp;
   olderHref: string | null;
 }) {
-  const [filter, setFilter] = useState<Filter>("all");
-  // Keyed by day so a group stays open across filter changes.
-  const [openDays, setOpenDays] = useState<
-    Record<number, Partial<Record<LowKind, boolean>>>
-  >({});
-  const now = useNow(asOf, 60_000);
-
-  const visible =
-    filter === "all" ? items : items.filter((i) => categoryOf(i) === filter);
-  const days = groupByDay(visible);
-
   return (
-    <section aria-label="Activity feed">
-      <div {...stylex.props(styles.filters)}>
-        <Chip
-          glyph="all"
-          count={items.length}
-          active={filter === "all"}
-          onClick={() => setFilter("all")}
-        >
-          All
-        </Chip>
-        {CATEGORIES.map((c) => (
-          <Chip
-            key={c.id}
-            glyph={c.glyph}
-            count={items.filter((i) => categoryOf(i) === c.id).length}
-            active={filter === c.id}
-            onClick={() => setFilter(c.id)}
-          >
-            {c.label}
-          </Chip>
-        ))}
-      </div>
-
-      {days.map(({ day, items: dayItems, entries }) => (
-        <div key={day}>
-          <TimelineRow
-            variant="heading"
-            gutter={formatShortDate(dayItems[0].publishedAt)}
-          >
-            <div {...stylex.props(styles.dayTitle)}>
-              {/* Depends on the current time; see RelativeTime. */}
-              <h2 suppressHydrationWarning {...stylex.props(styles.dayLabel)}>
-                {formatDayLabel(day, now)}
-              </h2>
-              <Rule />
-              <span {...stylex.props(styles.dayCount)}>
-                {dayItems.length} {dayItems.length === 1 ? "thing" : "things"}
-              </span>
-            </div>
-          </TimelineRow>
-
-          {entries.map((entry) => {
-            switch (entry.type) {
-              case "high":
-                return (
-                  <TimelineRow
-                    key={entry.item.id}
-                    marker="diamond"
-                    gutter={
-                      <TextLink href={entry.item.url} variant="quiet">
-                        <RelativeTime
-                          timestamp={entry.item.publishedAt}
-                          asOf={asOf}
-                        />
-                      </TextLink>
-                    }
-                  >
-                    <HighCard item={entry.item} />
-                  </TimelineRow>
-                );
-              case "medium":
-                return (
-                  <TimelineRow
-                    key={entry.item.id}
-                    marker="ring"
-                    gutter={
-                      <TextLink href={entry.item.url} variant="quiet">
-                        <RelativeTime
-                          timestamp={entry.item.publishedAt}
-                          asOf={asOf}
-                        />
-                      </TextLink>
-                    }
-                  >
-                    <MediumRow item={entry.item} />
-                  </TimelineRow>
-                );
-              case "low":
-                return (
-                  <TimelineRow
-                    key={`low-${day}`}
-                    marker="dot"
-                    gutter={
-                      <RelativeTime
-                        timestamp={entry.items[0].publishedAt}
-                        asOf={asOf}
-                      />
-                    }
-                  >
-                    <LowSummary
-                      items={entry.items}
-                      open={openDays[day] ?? {}}
-                      onToggle={(kind) =>
-                        setOpenDays({
-                          ...openDays,
-                          [day]: {
-                            ...openDays[day],
-                            [kind]: !openDays[day]?.[kind],
-                          },
-                        })
-                      }
-                      asOf={asOf}
-                    />
-                  </TimelineRow>
-                );
-            }
-          })}
-        </div>
-      ))}
-
+    <FeedView
+      days={groupByDay(items, asOf)}
+      counts={countByCategory(items)}
+      asOf={asOf}
+    >
       {olderHref && (
         <TimelineRow line={false} rail="⋮" style={styles.older}>
           <TextLink href={olderHref}>load older →</TextLink>
         </TimelineRow>
       )}
-    </section>
+    </FeedView>
   );
 }
 
@@ -227,7 +63,7 @@ export function Feed({
  * Groups items by calendar day. Within a day, high and medium items stand
  * alone; low items collapse into one entry placed at the newest of them.
  */
-function groupByDay(items: FeedItem[]): Day[] {
+function groupByDay(items: FeedItem[], asOf: Timestamp): FeedDay[] {
   const days = new Map<number, FeedItem[]>();
   for (const item of items) {
     const day = dayNumber(item.publishedAt);
@@ -235,19 +71,81 @@ function groupByDay(items: FeedItem[]): Day[] {
   }
 
   return [...days].map(([day, dayItems]) => {
-    const entries: Entry[] = [];
-    const lows: FeedItem[] = [];
-    for (const item of dayItems) {
-      if (isHighPriority(item)) {
-        entries.push({ type: "high", item });
-      } else if (isMediumPriority(item)) {
-        entries.push({ type: "medium", item });
-      } else {
-        // The first low item is the newest, so the group goes where it would.
-        if (!lows.length) entries.push({ type: "low", items: lows });
-        lows.push(item);
-      }
-    }
-    return { day, items: dayItems, entries };
+    const lows = dayItems.filter(
+      (i) => !isHighPriority(i) && !isMediumPriority(i),
+    );
+    return {
+      day,
+      date: formatShortDate(dayItems[0].publishedAt),
+      counts: countByCategory(dayItems),
+      entries: dayItems.flatMap((item) =>
+        isHighPriority(item) || isMediumPriority(item)
+          ? [itemEntry(item, asOf)]
+          : // The first low item is the newest, so the group goes where it would.
+            item === lows[0]
+            ? [lowEntry(day, lows, asOf)]
+            : [],
+      ),
+    };
   });
+}
+
+function countByCategory(items: FeedItem[]): CategoryCounts {
+  const counts: CategoryCounts = {};
+  for (const item of items) {
+    const category = categoryOf(item);
+    counts[category] = (counts[category] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function itemEntry(
+  item: HighPriorityItem | MediumPriorityItem,
+  asOf: Timestamp,
+): FeedEntry {
+  return {
+    key: item.id,
+    categories: [categoryOf(item)],
+    content: (
+      <TimelineRow
+        marker={isHighPriority(item) ? "diamond" : "ring"}
+        gutter={
+          <TextLink href={item.url} variant="quiet">
+            <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
+          </TextLink>
+        }
+      >
+        {isHighPriority(item) ? (
+          <HighCard item={item} />
+        ) : (
+          <MediumRow item={item} />
+        )}
+      </TimelineRow>
+    ),
+  };
+}
+
+/**
+ * A day's low items in one row. Its time is the newest item's, of those the
+ * filter leaves showing.
+ */
+function lowEntry(day: number, items: FeedItem[], asOf: Timestamp): FeedEntry {
+  const times: Partial<Record<Filter, ReactNode>> = {};
+  // Newest first, so the first item seen of each category is its newest.
+  for (const item of items) {
+    const category = categoryOf(item);
+    times.all ??= <RelativeTime timestamp={item.publishedAt} asOf={asOf} />;
+    times[category] ??= (
+      <RelativeTime timestamp={item.publishedAt} asOf={asOf} />
+    );
+  }
+  return {
+    key: `low-${day}`,
+    categories: [...new Set(items.map(categoryOf))],
+    content: (
+      <TimelineRow marker="dot" gutter={<FilterSwitch views={times} />}>
+        <LowSummary items={items} asOf={asOf} />
+      </TimelineRow>
+    ),
+  };
 }
