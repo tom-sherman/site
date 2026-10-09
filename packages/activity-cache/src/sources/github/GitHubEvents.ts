@@ -191,6 +191,12 @@ const toActivity = (event: Schema.Json): Activity | undefined => {
  * Public events from `GET /users/{user}/events/public`: pushes, PRs, stars, …
  * Only public ones, even when the token can see more.
  *
+ * GitHub only serves the last 30 days of events, and at most 300 of them, so
+ * in a busy month older ones drop out early. Each snapshot is complete back to
+ * the oldest event it got (`completeAfter`), so those are kept until they're
+ * 30 days old, while events GitHub stops serving within its window (say, from
+ * a repo made private) are removed.
+ *
  * The checkpoint is the first page's ETag, so a refresh where nothing changed
  * is one conditional request (which, authenticated, doesn't count against the
  * rate limit). Each result asks to be refreshed after GitHub's
@@ -230,6 +236,7 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
         // the same event can turn up twice. Nothing is skipped: anything newer
         // than the first page changes its ETag, and is picked up next time.
         const activities = new Map<string, Activity>();
+        let oldest: number | undefined;
         let page = { response: first.response, events: first.events };
         while (true) {
           let reachedSince = false;
@@ -238,6 +245,9 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
             if (activity === undefined) {
               yield* Effect.logWarning("Skipping invalid event");
               continue;
+            }
+            if (activity.timestamp < (oldest ?? Infinity)) {
+              oldest = activity.timestamp;
             }
             if (activity.timestamp < since) {
               reachedSince = true;
@@ -265,6 +275,9 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
           [...activities.values()],
           header(first.response, "etag"),
           refreshAfter(first.response),
+          // Everything since the oldest event served, of any type. With none,
+          // it says nothing about what's stored.
+          oldest ?? (yield* Clock.currentTimeMillis),
         );
       }).pipe(
         Effect.mapError(
@@ -283,9 +296,6 @@ export const makeGitHubEventsSource = Effect.fn("makeGitHubEventsSource")(
     return {
       name: "github",
       fingerprint: [`user=${user}`, `version=${VERSION}`].join(";"),
-      // Events are never deleted, but GitHub only serves the last 30 days,
-      // and at most 300 of them: in a busy month, older ones drop out early.
-      appendOnly: true,
       snapshot,
     } satisfies Source;
   },

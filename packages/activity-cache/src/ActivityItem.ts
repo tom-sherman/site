@@ -10,7 +10,10 @@ import { Schema } from "effect";
  */
 
 const fields = {
-  /** Stable key: the at-uri for atproto records, `github:<event id>` for GitHub. */
+  /**
+   * Stable key: the at-uri for atproto records, `github:<event id>` for
+   * GitHub, `letterboxd:<kind>-<id>` for Letterboxd.
+   */
   id: Schema.String,
   /** Epoch milliseconds. */
   timestamp: Schema.Int,
@@ -119,12 +122,65 @@ export const GitHubItem = Schema.Union([
   WatchEvent,
 ]);
 
+/** 0.5–5, in half stars. */
+const Rating = Schema.Number.check(
+  Schema.isBetween({ minimum: 0.5, maximum: 5 }),
+  Schema.isMultipleOf(0.5),
+);
+
+/**
+ * A film I logged in my Letterboxd diary, e.g. `letterboxd:review-1523777052`.
+ * `timestamp` is when it was logged, not watched.
+ */
+const diaryEntry = <const T extends string, D extends Schema.Struct.Fields>(
+  type: T,
+  data: D,
+) =>
+  Schema.Struct({
+    ...fields,
+    type: Schema.Literal(`letterboxd.${type}` as `letterboxd.${T}`),
+    data: Schema.Struct({
+      /** The entry on Letterboxd. */
+      url: Schema.String,
+      film: Schema.Struct({
+        title: Schema.String,
+        year: Schema.optional(Schema.Int),
+        /**
+         * Letterboxd's 600×900 poster. Other sizes are the same URL with
+         * other dimensions, e.g. `-0-230-0-345-crop.jpg`.
+         */
+        poster: Schema.optional(Schema.String),
+        tmdbId: Schema.optional(Schema.Int),
+      }),
+      /** `YYYY-MM-DD`, when it was logged as a watch. */
+      watchedDate: Schema.optional(Schema.String),
+      rewatch: Schema.Boolean,
+      /** Given a heart. */
+      liked: Schema.Boolean,
+      ...data,
+    }),
+  });
+
+/** A film watched and rated, without a review. */
+export const FilmRatingItem = diaryEntry("rating", { rating: Rating });
+export const FilmReviewItem = diaryEntry("review", {
+  /** Reviews don't need a rating. */
+  rating: Schema.optional(Rating),
+  /** Plain text, paragraphs separated by blank lines. */
+  review: Schema.String,
+  /** Marked as containing spoilers. */
+  spoilers: Schema.Boolean,
+});
+
+export const LetterboxdItem = Schema.Union([FilmRatingItem, FilmReviewItem]);
+
 export const ActivityItem = Schema.Union([
   PostItem,
   ThreadItem,
   LikeItem,
   PlayItem,
   ...GitHubItem.members,
+  ...LetterboxdItem.members,
 ]);
 export type ActivityItem = typeof ActivityItem.Type;
 

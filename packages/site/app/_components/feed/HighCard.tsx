@@ -2,9 +2,11 @@ import * as stylex from "@stylexjs/stylex";
 import { Artwork } from "@/lib/components/Artwork";
 import { Avatar, AvatarStack } from "@/lib/components/Avatar";
 import { Card, CardHeader } from "@/lib/components/Card";
+import { Glyph } from "@/lib/components/Glyph";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { BlogPostItem, FilmReviewItem, ThreadItem } from "@/lib/data/feed";
 import {
+  filmRatingLabel,
   formatCount,
   formatStars,
   glyphOf,
@@ -103,6 +105,8 @@ const styles = stylex.create({
     padding: 24,
   },
   poster: {
+    // Images don't stretch to their grid column like the placeholder does.
+    width: "100%",
     aspectRatio: "2 / 3",
   },
   reviewMain: {
@@ -223,14 +227,20 @@ function FilmReviewBody({ item }: { item: FilmReviewItem }) {
       <div {...stylex.props(styles.reviewMain)}>
         <div {...stylex.props(styles.reviewHeading)}>
           <h3 {...stylex.props(styles.reviewTitle)}>{item.title}</h3>
-          <span {...stylex.props(styles.year)}>{item.year}</span>
+          {item.year !== undefined && (
+            <span {...stylex.props(styles.year)}>{item.year}</span>
+          )}
         </div>
-        <div
-          aria-label={`${item.rating} out of 5 stars`}
-          {...stylex.props(styles.stars)}
-        >
-          {formatStars(item.rating)}
-        </div>
+        {(item.rating !== undefined || item.liked) && (
+          <div
+            aria-label={filmRatingLabel(item)}
+            {...stylex.props(styles.stars)}
+          >
+            {item.liked && <Glyph name="liked" />}
+            {item.liked && item.rating !== undefined && " "}
+            {item.rating !== undefined && formatStars(item.rating)}
+          </div>
+        )}
         <p {...stylex.props(styles.excerpt, styles.reviewExcerpt)}>
           {item.excerpt}
         </p>

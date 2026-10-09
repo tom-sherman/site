@@ -19,6 +19,8 @@
     "@effect/sql-sqlite-node": "catalog:",
     "@repo/atproto-client": "workspace:*",
     "effect": "catalog:",
+    "fast-xml-parser": "^5.11.2",
+    "htmlparser2": "^12.0.0",
     "oauth4webapi": "^3.8.8",
     "openid-client": "^6.8.8"
   },

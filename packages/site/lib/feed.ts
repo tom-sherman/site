@@ -94,6 +94,17 @@ export function formatStars(rating: number): string {
   return "★".repeat(Math.floor(rating)) + (rating % 1 ? "½" : "");
 }
 
+/** What a film's stars and heart say, for screen readers. */
+export function filmRatingLabel(film: {
+  rating?: number;
+  liked: boolean;
+}): string {
+  const parts: string[] = [];
+  if (film.liked) parts.push("liked");
+  if (film.rating !== undefined) parts.push(`${film.rating} out of 5 stars`);
+  return parts.join(", ");
+}
+
 /** `212`, `1.2k` */
 export function formatCount(n: number): string {
   if (n < 1000) return String(n);

@@ -14,6 +14,7 @@ import { Sources } from "./Source.ts";
 import { makeAtprotoRepoSource } from "./sources/atproto/AtprotoRepo.ts";
 import { collections } from "./sources/atproto/collections.ts";
 import { makeGitHubEventsSource } from "./sources/github/GitHubEvents.ts";
+import { makeLetterboxdDiarySource } from "./sources/letterboxd/LetterboxdDiary.ts";
 import { Store } from "./Store.ts";
 
 const SqlLayer = Layer.unwrap(
@@ -37,12 +38,16 @@ const SourcesLayer = Layer.effect(
     );
     // Optional, but without one GitHub allows 60 requests an hour per IP.
     const githubToken = yield* Config.option(Config.Redacted("GITHUB_TOKEN"));
+    const letterboxdUser = yield* Config.String("LETTERBOXD_USER").pipe(
+      Config.withDefault("tomus"),
+    );
     return [
       yield* makeAtprotoRepoSource({ did, collections }),
       yield* makeGitHubEventsSource({
         user: githubUser,
         token: Option.getOrUndefined(githubToken),
       }),
+      yield* makeLetterboxdDiarySource({ user: letterboxdUser }),
     ];
   }),
 ).pipe(

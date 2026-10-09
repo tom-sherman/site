@@ -53,7 +53,6 @@ const snap = (
 const fakeSource = (name: string) => {
   const fake = {
     fingerprint: "v1",
-    appendOnly: false,
     calls: [] as Array<{ since: number; checkpoint: string | undefined }>,
     respond: (_: {
       since: number;
@@ -65,9 +64,6 @@ const fakeSource = (name: string) => {
     name,
     get fingerprint() {
       return fake.fingerprint;
-    },
-    get appendOnly() {
-      return fake.appendOnly;
     },
     snapshot: (options) =>
       Effect.suspend(() => {
@@ -301,32 +297,41 @@ describe("ActivityCache", () => {
   );
 });
 
-describe("ActivityCache with an append-only source", () => {
-  it.effect("keeps rows that upstream stopped serving", () =>
+describe("ActivityCache with a snapshot that only goes back so far", () => {
+  it.effect("replaces rows it covers, and keeps older ones", () =>
     Effect.gen(function* () {
       const a = fakeSource("a");
-      a.appendOnly = true;
       a.respond = () =>
-        Effect.succeed(snap([activity("e2", 2000), activity("e1", 1000)], "1"));
+        Effect.succeed(
+          snap(
+            [activity("e3", 3000), activity("e2", 2000), activity("e1", 1000)],
+            "1",
+          ),
+        );
       const { cache, stop } = yield* boot(tempDb(), [a]);
       yield* cache.refresh("a");
 
-      // `e1` fell out of upstream's window; `e2` changed.
+      // `e1` fell out of upstream's window, `e3` was deleted, `e2` changed.
       a.respond = () =>
         Effect.succeed(
-          snap([activity("e3", 3000), activity("e2", 2000, "v2")], "2"),
+          Result.snapshot(
+            [activity("e4", 4000), activity("e2", 2000, "v2")],
+            "2",
+            "5 minutes",
+            2000,
+          ),
         );
       yield* cache.refresh("a");
       assert.deepStrictEqual(yield* contents(cache), [
         "e1=e1",
         "e2=v2",
-        "e3=e3",
+        "e4=e4",
       ]);
 
       // Until it's older than the retention window.
       yield* TestClock.adjust(RETENTION_MS + 1500);
       yield* cache.prune;
-      assert.deepStrictEqual(yield* contents(cache), ["e2=v2", "e3=e3"]);
+      assert.deepStrictEqual(yield* contents(cache), ["e2=v2", "e4=e4"]);
       yield* stop;
     }),
   );
@@ -334,7 +339,6 @@ describe("ActivityCache with an append-only source", () => {
   it.effect("still lets realtime writes during a refresh win", () =>
     Effect.gen(function* () {
       const a = fakeSource("a");
-      a.appendOnly = true;
       const { cache, stop } = yield* boot(tempDb(), [a]);
       yield* cache.refresh("a");
 
@@ -343,7 +347,14 @@ describe("ActivityCache with an append-only source", () => {
       a.respond = () =>
         Deferred.succeed(started, undefined).pipe(
           Effect.andThen(Deferred.await(release)),
-          Effect.as(snap([activity("x", 1, "v1"), activity("y")], "2")),
+          Effect.as(
+            Result.snapshot(
+              [activity("x", 1, "v1"), activity("y")],
+              "2",
+              "5 minutes",
+              0,
+            ),
+          ),
         );
       const refreshing = yield* Effect.forkChild(cache.refresh("a"));
       yield* Deferred.await(started);
@@ -358,17 +369,19 @@ describe("ActivityCache with an append-only source", () => {
     }),
   );
 
-  it.effect("replaces its rows when the fingerprint changes", () =>
+  it.effect("replaces all its rows when the fingerprint changes", () =>
     Effect.gen(function* () {
       const db = tempDb();
       const a = fakeSource("a");
-      a.appendOnly = true;
-      a.respond = () => Effect.succeed(snap([activity("v1-row")], "1"));
+      a.respond = () => Effect.succeed(snap([activity("v1-row", 1000)], "1"));
       const first = yield* start(db, [a]);
       yield* first.stop;
 
       a.fingerprint = "v2";
-      a.respond = () => Effect.succeed(snap([activity("v2-row")], "2"));
+      a.respond = () =>
+        Effect.succeed(
+          Result.snapshot([activity("v2-row", 2000)], "2", "5 minutes", 2000),
+        );
       const second = yield* start(db, [a]);
       assert.deepStrictEqual(yield* contents(second.cache), ["v2-row=v2-row"]);
       yield* second.stop;

@@ -8,13 +8,14 @@ const GLYPHS = {
   bluesky: "✱",
   x: "✕",
   reply: "↳",
-  film: "◐",
+  film: "✇",
   music: "♫",
   games: "▶",
   code: "⌥",
   pinned: "◆",
   external: "↗",
   cycle: "⇄",
+  liked: "♥",
 } as const;
 
 export type GlyphName = keyof typeof GLYPHS;

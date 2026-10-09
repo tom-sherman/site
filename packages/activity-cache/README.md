@@ -9,16 +9,17 @@ pnpm test
 
 Configuration comes from environment variables, then `.env` (gitignored, for local overrides and secrets). Under `pnpm dev`, the committed [`.env.development`](.env.development) fills in the rest: it points `OIDC_ISSUER` at the site's `next dev` server, so the service starts with no setup. Run the site's `pnpm dev` too: `/activity` returns `503` while it's down, since the cache can't discover the site's keys.
 
-| env             | default                                  |
-| --------------- | ---------------------------------------- |
-| `PORT`          | `3001`                                   |
-| `DATABASE_PATH` | `data/activity.db`                       |
-| `ATPROTO_DID`   | `did:plc:2xau7wbgdq4phuou2ypwuen7`       |
-| `JETSTREAM_URL` | `https://jetstream.us-east.bsky.network` |
-| `GITHUB_USER`   | `tom-sherman`                            |
-| `GITHUB_TOKEN`  | optional; see [GitHub](#github)          |
-| `OIDC_ISSUER`   | required (dev: `http://localhost:3000`)  |
-| `OIDC_AUDIENCE` | required (dev: `activity-cache`)         |
+| env               | default                                  |
+| ----------------- | ---------------------------------------- |
+| `PORT`            | `3001`                                   |
+| `DATABASE_PATH`   | `data/activity.db`                       |
+| `ATPROTO_DID`     | `did:plc:2xau7wbgdq4phuou2ypwuen7`       |
+| `JETSTREAM_URL`   | `https://jetstream.us-east.bsky.network` |
+| `GITHUB_USER`     | `tom-sherman`                            |
+| `GITHUB_TOKEN`    | optional; see [GitHub](#github)          |
+| `LETTERBOXD_USER` | `tomus`                                  |
+| `OIDC_ISSUER`     | required (dev: `http://localhost:3000`)  |
+| `OIDC_AUDIENCE`   | required (dev: `activity-cache`)         |
 
 ## API
 
@@ -29,6 +30,7 @@ Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, ke
 
 - **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
 - **GitHub events** (`github.PushEvent`, …): `data` is `{ actor, repo, payload }`, with only the payload fields the schema lists.
+- **Letterboxd diary entries** (`letterboxd.rating`, `letterboxd.review`): `data` is the entry's `url`, its `film` (title, year, poster, TMDB id), `watchedDate`, `rewatch`, `liked` and `rating`, plus for a review its text (`review`) and whether it's marked as having `spoilers`.
 
 `type` filters only accept these types. Stored rows are decoded into the union when they're served. One that doesn't decode is logged and left out, and the cursor still moves past it.
 
@@ -56,10 +58,16 @@ Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, ke
 
 Two tables:
 
-- `activity`: `source`, `id` (at-uri for atproto, `github:<event id>` for GitHub), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
+- `activity`: `source`, `id` (at-uri for atproto, `github:<event id>` for GitHub, `letterboxd:<kind>-<id>` for Letterboxd), `timestamp` (epoch ms), `type` (e.g. the NSID) and `data` (JSON), plus `group_id` and `collects` for [roll-ups](#roll-ups). `source` and `id` let a source's rows be replaced, and realtime updates and deletes find their row.
 - `source_state`: one row per source with its fingerprint, last refresh, checkpoint, realtime cursor and backoff. It's what lets a restart pick up where the last process left off.
 
 The data is disposable, but the store is durable: a restart serves what's there and doesn't call upstream until something is due.
+
+### What's durable
+
+Only atproto. My repo is the one upstream that's durable, open and complete: a rebuild downloads all of it, so its rows can always be rebuilt in full, however the mapping or the retention window changes. Every other source only serves a recent window (GitHub's last 30 days, Letterboxd's last 50 diary entries), so whatever falls out of it is gone for good the next time the source is rebuilt or the table layout changes. That's accepted: their rows are disposable, and the cache doesn't try to make them anything more (no archive, no keeping rows across rebuilds).
+
+Anything I want a longer history of belongs in my atproto repo, as records, rather than in the cache. Then a longer retention window is just a wider filter on the export.
 
 ### Refreshing
 
@@ -74,15 +82,17 @@ A refresh swaps the source's rows in one transaction, so reads see the old rows 
 
 1. Start buffering the source's realtime mutations, **before** asking it for a snapshot. Realtime writes keep going to the table as well.
 2. Fetch the snapshot. Rows and other sources keep serving meanwhile.
-3. In one transaction: delete the source's rows (unless it's [append-only](#append-only-sources)), insert the snapshot, replay the buffer, update `source_state`.
+3. In one transaction: delete the source's rows (only back to where it's complete, for a [partial snapshot](#partial-snapshots)), insert the snapshot, replay the buffer, update `source_state`.
 
 Every change ends up in the snapshot, the buffer, or both. Replaying upserts and deletes in order is idempotent, so being in both is fine. A failed or interrupted refresh leaves the rows alone.
 
 A table layout change (`SCHEMA_VERSION` in `src/Store.ts`) drops everything and lets sources refill.
 
-### Append-only sources
+### Partial snapshots
 
-Some upstreams never delete anything, but only serve their latest items: GitHub serves the last 30 days of events, but at most 300. A source that sets `appendOnly` has its snapshots merged into its rows instead of replacing them, so what drops out of upstream's window stays until it's older than the retention window. A rebuild (fingerprint change) still replaces them, since the old rows were built with the old mapping; anything upstream no longer serves is lost then.
+Some upstreams only serve their latest items: GitHub serves the last 30 days of events, but at most 300, and Letterboxd's feed is my last 50 diary entries. In a busy month, items drop out of upstream's window while they're still in the retention window. So a snapshot can say how far back it's complete (`completeAfter`, usually its oldest item): it has everything newer than that, so stored rows from then on that it's missing are gone upstream and are deleted, and older ones are kept until they're older than the retention window. A snapshot with nothing in it is complete after now, so it keeps everything.
+
+A rebuild (fingerprint change) still replaces every row, since the old rows were built with the old mapping; anything upstream no longer serves is lost then. That's [by design](#whats-durable).
 
 ### Realtime
 
@@ -119,10 +129,21 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 `src/sources/github/GitHubEvents.ts` caches my public events (`GET /users/{GITHUB_USER}/events/public`): pushes, PRs, stars and so on. Only public ones, even if the token can see more. `type` is `github.` plus the event type, e.g. `github.PushEvent`, and `data` is the event as GitHub serves it. Only types in `GitHubItem` (`src/ActivityItem.ts`) are kept, and only when they match its schema; an event of a known type that doesn't is logged. GitHub trims event payloads: pull requests have no title, and pushes no commits.
 
-- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the last 30 days of events, and at most 300 of them, so the source is [append-only](#append-only-sources): in a month with more than 300, the older ones drop out early and are kept until they're 30 days old. Otherwise GitHub's window and the retention window line up, so a rebuild usually loses nothing. Events that shift onto the next page while paging are deduplicated.
+- **Paging.** 100 events a page, following `Link: rel="next"` until an event is older than the retention window. GitHub only serves the last 30 days of events, and at most 300 of them, so snapshots are [partial](#partial-snapshots), complete back to the oldest event fetched: in a month with more than 300, the older ones drop out early and are kept until they're 30 days old, while events GitHub stops serving within its window (say, from a repo made private) are removed. Otherwise GitHub's window and the retention window line up, so a rebuild usually loses nothing. Events that shift onto the next page while paging are deduplicated.
 - **Token.** `GITHUB_TOKEN` is optional; any token works, it needs no scopes. Without one, GitHub allows 60 requests an hour per IP and even a `304` counts, so the source polls at most every 5 minutes instead of at `X-Poll-Interval` (usually 60s). With one, `304`s are free.
 - **Latency.** GitHub says events can take anywhere from 30s to 6h to show up, so a fresh push won't always be in the feed straight away.
 - **Rate limits.** A `403`/`429` with `Retry-After`, or with `X-RateLimit-Remaining: 0` and `X-RateLimit-Reset`, becomes the source's next attempt time.
+
+### Letterboxd
+
+`src/sources/letterboxd/LetterboxdDiary.ts` caches my diary from the RSS feed at `letterboxd.com/{LETTERBOXD_USER}/rss/`, since Letterboxd's API is invite-only. The feed is my last 50 diary entries, newest logged first, then my lists, with Letterboxd's own elements (`letterboxd:memberRating`, `letterboxd:rewatch`, …) alongside RSS's. `fast-xml-parser` reads it into plain objects, and each item is decoded with an Effect Schema, so one that doesn't fit is logged and skipped rather than failing the refresh.
+
+- **What's kept.** Reviews (guid `letterboxd-review-<id>`) become `letterboxd.review`, with or without a rating. Watches (`letterboxd-watch-<id>`) with a rating become `letterboxd.rating`; ones logged without a rating are left out. Lists are left out for now.
+- **Reviews.** The `description` is HTML: the poster, then the review's paragraphs (or "Watched on …" for a watch). `htmlparser2` turns the paragraphs into plain text, with `<br>`s as newlines and paragraphs separated by blank lines. A leading "This review may contain spoilers." becomes `spoilers: true`.
+- **Timestamps.** An entry's `timestamp` is its `pubDate`, when it was logged; `watchedDate` is the day it was watched, with no time.
+- **[Partial snapshots](#partial-snapshots).** Each snapshot is complete back to the oldest diary entry in the feed: rows from then on are replaced, which picks up deleted and edited entries, and older ones are kept, so a month with more than 50 entries doesn't lose any. An empty diary keeps everything, so a feed that comes back empty by mistake doesn't wipe the rows.
+- **Checkpoint.** The feed has no `ETag` or `Last-Modified`, so every refresh (every 10 minutes) downloads it, about 50KB. The checkpoint is a hash of it, so an unchanged feed doesn't rewrite the rows.
+- **Rate limits.** The feed is behind Cloudflare. A `Retry-After` becomes the source's next attempt time. A challenge page isn't the feed, so it fails to parse and backs off.
 
 ## Adding a data type
 
@@ -130,4 +151,4 @@ Roll-ups happen when reading, so a record can arrive before or after the posts i
 
 **GitHub event type.** Add a `githubEvent(...)` to `GitHubItem` in `src/ActivityItem.ts`, with the payload fields to serve, and bump `VERSION` in `GitHubEvents.ts` so stored events are refetched.
 
-**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, add it in `main.ts`, and add its types to `ActivityItem`. Set `appendOnly` if upstream never deletes but stops serving older items. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `follow(apply)`, [applying changes](#realtime) mapped the same way snapshots are.
+**Another source** (like GitHub): implement `Source` with a `name`, a `fingerprint` and `snapshot({ since, checkpoint })` returning a `SnapshotResult` with its `refreshAfter`, add it in `main.ts`, and add its types to `ActivityItem`. If upstream only serves its latest items, return `completeAfter`. Fail with a `SourceError` carrying `retryAt` when upstream rate limits. For realtime, add `follow(apply)`, [applying changes](#realtime) mapped the same way snapshots are.

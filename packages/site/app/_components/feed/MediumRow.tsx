@@ -4,7 +4,13 @@ import { Avatar } from "@/lib/components/Avatar";
 import { Glyph } from "@/lib/components/Glyph";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { FilmRatingItem, PostItem } from "@/lib/data/feed";
-import { formatCount, formatStars, glyphOf, labelOf } from "@/lib/feed";
+import {
+  filmRatingLabel,
+  formatCount,
+  formatStars,
+  glyphOf,
+  labelOf,
+} from "@/lib/feed";
 
 const styles = stylex.create({
   row: {
@@ -16,9 +22,10 @@ const styles = stylex.create({
     paddingBottom: 30,
     paddingLeft: 2,
   },
-  thumb: {
+  // As wide as an avatar, so the text lines up with posts'.
+  poster: {
     width: 28,
-    height: 28,
+    aspectRatio: "2 / 3",
     padding: 0,
     borderRadius: 2,
   },
@@ -64,7 +71,7 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
   return (
     <div {...stylex.props(styles.row)}>
       {item.kind === "film-rating" ? (
-        <Artwork image={item.poster} variant="poster" style={styles.thumb} />
+        <Artwork image={item.poster} variant="poster" style={styles.poster} />
       ) : (
         <Avatar name={item.author.name} image={item.author.avatar} />
       )}
@@ -75,16 +82,25 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
           </a>
         </div>
         <div {...stylex.props(styles.text)}>
-          {item.kind === "post" ? item.text : `${item.title} (${item.year})`}
+          {item.kind === "post"
+            ? item.text
+            : item.year !== undefined
+              ? `${item.title} (${item.year})`
+              : item.title}
         </div>
       </div>
       {item.kind === "post" ? (
         <span {...stylex.props(styles.aside)}>♡ {formatCount(item.likes)}</span>
       ) : (
         <span
-          aria-label={`${item.rating} out of 5 stars`}
+          aria-label={filmRatingLabel(item)}
           {...stylex.props(styles.aside)}
         >
+          {item.liked && (
+            <>
+              <Glyph name="liked" />{" "}
+            </>
+          )}
           {formatStars(item.rating)}
         </span>
       )}

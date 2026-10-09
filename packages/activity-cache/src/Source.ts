@@ -24,6 +24,15 @@ export type SnapshotResult =
       readonly activities: ReadonlyArray<Activity>;
       readonly checkpoint: string | undefined;
       readonly refreshAfter: Duration.Input;
+      /**
+       * For an upstream that only serves its latest items (GitHub's last 300
+       * events, Letterboxd's last 50 diary entries): the snapshot has
+       * everything newer than this (epoch ms), usually its oldest item.
+       * Stored rows from then on that it's missing are gone upstream; older
+       * ones fell out of upstream's window, and are kept until they're older
+       * than the retention window. Omitted, it's everything since `since`.
+       */
+      readonly completeAfter?: number | undefined;
     };
 
 export const SnapshotResult = {
@@ -35,11 +44,13 @@ export const SnapshotResult = {
     activities: ReadonlyArray<Activity>,
     checkpoint: string | undefined,
     refreshAfter: Duration.Input,
+    completeAfter?: number,
   ): SnapshotResult => ({
     _tag: "Snapshot",
     activities,
     checkpoint,
     refreshAfter,
+    completeAfter,
   }),
 };
 
@@ -101,16 +112,8 @@ export interface Source {
    */
   readonly fingerprint: string;
   /**
-   * Upstream never deletes anything, but stops serving older items (GitHub
-   * serves the last 30 days of events, but at most 300). Snapshots are then
-   * merged into the stored rows rather than replacing them, so what falls
-   * out of upstream's window stays until it's older than the retention
-   * window. A rebuild (fingerprint change) still replaces them.
-   */
-  readonly appendOnly?: boolean | undefined;
-  /**
-   * Everything since `since`; for an append-only source, everything upstream
-   * still serves since then. Given the checkpoint from the last snapshot,
+   * Everything since `since`, or as far back as upstream serves (see
+   * `completeAfter`). Given the checkpoint from the last snapshot,
    * a source can cheaply report `Unchanged` instead (a repo rev, an ETag, …).
    * Must be safe to run while realtime mutations for the source are flowing.
    */

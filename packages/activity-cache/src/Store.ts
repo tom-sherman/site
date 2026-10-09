@@ -104,15 +104,15 @@ export class Store extends Context.Service<
     ) => Effect.Effect<void>;
     /**
      * Atomically swaps a source's rows for a snapshot (plus realtime mutations
-     * that arrived while it was fetched) and marks the source fresh. With
-     * `keepExisting`, rows missing from the snapshot are kept. A `null`
-     * fingerprint keeps the source due for a rebuild.
+     * that arrived while it was fetched) and marks the source fresh. Rows
+     * missing from the snapshot are deleted, except those no newer than
+     * `keepUpTo`. A `null` fingerprint keeps the source due for a rebuild.
      */
     readonly replaceSource: (
       source: string,
       replacement: {
         readonly activities: ReadonlyArray<Activity>;
-        readonly keepExisting: boolean;
+        readonly keepUpTo: number | undefined;
         readonly mutations: ReadonlyArray<Mutation>;
         readonly fingerprint: string | null;
         readonly checkpoint: string | undefined;
@@ -349,7 +349,7 @@ export class Store extends Context.Service<
         source: string,
         replacement: {
           readonly activities: ReadonlyArray<Activity>;
-          readonly keepExisting: boolean;
+          readonly keepUpTo: number | undefined;
           readonly mutations: ReadonlyArray<Mutation>;
           readonly fingerprint: string | null;
           readonly checkpoint: string | undefined;
@@ -358,9 +358,12 @@ export class Store extends Context.Service<
         },
       ) =>
         Effect.gen(function* () {
-          if (!replacement.keepExisting) {
-            yield* sql`DELETE FROM activity WHERE source = ${source}`;
-          }
+          yield* replacement.keepUpTo === undefined
+            ? sql`DELETE FROM activity WHERE source = ${source}`
+            : sql`
+                DELETE FROM activity
+                WHERE source = ${source} AND timestamp > ${replacement.keepUpTo}
+              `;
           yield* upsert(source, replacement.activities);
           yield* applyMutations(source, replacement.mutations);
           yield* sql`

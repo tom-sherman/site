@@ -11,6 +11,8 @@ import {
 } from "./bluesky";
 import type {
   FeedItem,
+  FilmRatingItem,
+  FilmReviewItem,
   GitHubEventItem,
   LikeItem,
   PostItem,
@@ -29,9 +31,14 @@ type Thread = Of<"is.sherman.unspecced.thread">;
 type Like = Of<"app.bsky.feed.like">;
 type Play = Of<"fm.teal.feed.play">;
 type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
+type Rating = Of<"letterboxd.rating">;
+type Review = Of<"letterboxd.review">;
 
 /** How much of my own post a self-reply quotes. */
 const QUOTE_LENGTH = 40;
+
+/** How much of a review its card shows. */
+const REVIEW_EXCERPT_LENGTH = 280;
 
 /** The cache's page size limit; its 30 days is usually one page. */
 const PAGE_SIZE = 500;
@@ -97,6 +104,10 @@ function toFeedItem(
       return likeItem(item, hydration.views);
     case "fm.teal.feed.play":
       return trackItem(item);
+    case "letterboxd.rating":
+      return filmRatingItem(item);
+    case "letterboxd.review":
+      return filmReviewItem(item);
     default:
       return gitHubItem(item);
   }
@@ -252,6 +263,60 @@ function trackItem(play: Play): TrackItem {
       hue: hueOf(artists[0]?.artistName ?? trackName),
     },
   };
+}
+
+function filmRatingItem(rating: Rating): FilmRatingItem {
+  const { url, film } = rating.data;
+  return {
+    kind: "film-rating",
+    id: rating.id,
+    url,
+    publishedAt: rating.timestamp,
+    title: film.title,
+    year: film.year,
+    rating: rating.data.rating,
+    liked: rating.data.liked,
+    // A 28px thumbnail.
+    poster: posterOf(film, 70),
+  };
+}
+
+/** A review marked as having spoilers doesn't show any of it. */
+function filmReviewItem(review: Review): FilmReviewItem {
+  const { url, film } = review.data;
+  return {
+    kind: "film-review",
+    id: review.id,
+    url,
+    publishedAt: review.timestamp,
+    title: film.title,
+    year: film.year,
+    rating: review.data.rating,
+    liked: review.data.liked,
+    excerpt: review.data.spoilers
+      ? "This review may contain spoilers."
+      : truncate(review.data.review, REVIEW_EXCERPT_LENGTH),
+    // At most 120px wide on a card.
+    poster: posterOf(film, 230),
+  };
+}
+
+/**
+ * Letterboxd's poster resized to `width`: its URLs carry their dimensions
+ * (`-0-600-0-900-crop.jpg`), and it serves other sizes at the same URL with
+ * others. Anything not on its CDN is dropped rather than hotlinked.
+ */
+function posterOf(
+  film: Rating["data"]["film"],
+  width: number,
+): FilmRatingItem["poster"] {
+  const poster = film.poster?.startsWith("https://a.ltrbxd.com/")
+    ? film.poster.replace(
+        /-0-\d+-0-\d+-crop\./,
+        `-0-${width}-0-${Math.round(width * 1.5)}-crop.`,
+      )
+    : undefined;
+  return { alt: `${film.title} poster`, url: poster, hue: hueOf(film.title) };
 }
 
 function gitHubItem(event: GitHubEvent): GitHubEventItem {

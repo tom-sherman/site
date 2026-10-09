@@ -35,9 +35,11 @@ export interface ThreadItem extends FeedItemBase {
 export interface FilmReviewItem extends FeedItemBase {
   kind: "film-review";
   title: string;
-  year: number;
-  /** 0–5 in half-star steps. */
-  rating: number;
+  year?: number;
+  /** 0.5–5 in half-star steps; reviews don't need one. */
+  rating?: number;
+  /** Given a heart on Letterboxd. */
+  liked: boolean;
   excerpt: string;
   poster: ImageRef;
 }
@@ -76,8 +78,10 @@ export interface LikeItem extends FeedItemBase {
 export interface FilmRatingItem extends FeedItemBase {
   kind: "film-rating";
   title: string;
-  year: number;
+  year?: number;
   rating: number;
+  /** Given a heart on Letterboxd. */
+  liked: boolean;
   poster: ImageRef;
 }
 

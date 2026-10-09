@@ -134,6 +134,8 @@ describe("GitHubEvents", () => {
       );
       assert.deepStrictEqual(result.activities[0]!.data, pages[0]![0]);
       assert.strictEqual(result.checkpoint, `W/"page-1"`);
+      // Back to the oldest event it got, even though it's too old to keep.
+      assert.strictEqual(result.completeAfter, NOW - 40 * DAY);
       assert.deepStrictEqual(result.refreshAfter, Duration.seconds(90));
 
       const headers = net.requests[0]!.headers;
@@ -157,6 +159,34 @@ describe("GitHubEvents", () => {
         result.activities.map((a) => a.id),
         ["github:5", "github:4", "github:2", "github:1"],
       );
+      assert.strictEqual(result.completeAfter, NOW - 50 * DAY);
+    }),
+  );
+
+  it.effect("counts events of any type towards how far back it goes", () =>
+    Effect.gen(function* () {
+      const net = mockNetwork(() =>
+        Response.json([event("2", 1), event("1", 3, "GollumEvent")]),
+      );
+      const result = yield* snapshot({}).pipe(Effect.provide(net.layer));
+      assert.strictEqual(result._tag, "Snapshot");
+      if (result._tag !== "Snapshot") return;
+      assert.deepStrictEqual(
+        result.activities.map((a) => a.id),
+        ["github:2"],
+      );
+      assert.strictEqual(result.completeAfter, NOW - 3 * DAY);
+    }),
+  );
+
+  it.effect("keeps what's stored when there are no events", () =>
+    Effect.gen(function* () {
+      const net = mockNetwork(() => Response.json([]));
+      const result = yield* snapshot({}).pipe(Effect.provide(net.layer));
+      assert.strictEqual(result._tag, "Snapshot");
+      if (result._tag !== "Snapshot") return;
+      // Complete after now, so nothing's deleted. The test clock starts at 0.
+      assert.strictEqual(result.completeAfter, 0);
     }),
   );
 
@@ -286,7 +316,6 @@ describe("GitHubEvents", () => {
         Effect.provide(mockNetwork(servePages).layer),
       );
       assert.strictEqual(source.name, "github");
-      assert.isTrue(source.appendOnly);
       assert.strictEqual(source.fingerprint, `user=${USER};version=2`);
     }),
   );
