@@ -22,11 +22,6 @@ const styles = stylex.create({
     padding: 0,
     borderRadius: 2,
   },
-  // Where the avatar would be, so replies line up with other rows.
-  noAvatar: {
-    width: 28,
-    flexShrink: 0,
-  },
   main: {
     flexGrow: 1,
     minWidth: 0,
@@ -79,11 +74,11 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
     <div {...stylex.props(styles.row)}>
       {item.kind === "film-rating" ? (
         <Artwork image={item.poster} variant="poster" style={styles.thumb} />
-      ) : item.replyTo ? (
-        // A reply shows who it's replying to, next to their handle instead.
-        <span {...stylex.props(styles.noAvatar)} />
       ) : (
-        <Avatar name={item.author.name} image={item.author.avatar} />
+        // A reply shows who it's replying to, next to their handle instead.
+        !item.replyTo && (
+          <Avatar name={item.author.name} image={item.author.avatar} />
+        )
       )}
       <div {...stylex.props(styles.main)}>
         <div {...stylex.props(styles.meta)}>
