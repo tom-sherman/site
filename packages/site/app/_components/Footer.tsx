@@ -33,11 +33,9 @@ const styles = stylex.create({
 export function Footer({
   name,
   year,
-  visitorCount,
 }: {
   name: string;
   year: number;
-  visitorCount: number;
 }) {
   return (
     <footer {...stylex.props(styles.footer)}>
@@ -56,12 +54,8 @@ export function Footer({
           Feed pulled from Bluesky, X, Letterboxd, Last.fm, Steam and GitHub.
         </div>
         <div {...stylex.props(styles.signoff)}>
-          <span>
-            © {year} {name}
-          </span>
-          {/* A deliberate old-web joke. */}
           <Marginalia variant="sticker">
-            you are visitor №{formatVisitorNumber(visitorCount)}
+            © {year} {name}
           </Marginalia>
         </div>
       </Container>
@@ -69,9 +63,3 @@ export function Footer({
   );
 }
 
-/** `004,281` */
-function formatVisitorNumber(n: number) {
-  return String(n)
-    .padStart(6, "0")
-    .replace(/\B(?=(\d{3})+$)/g, ",");
-}

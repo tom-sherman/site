@@ -4,7 +4,7 @@ import { Container } from "@/lib/components/Container";
 import { breakpoints, layout } from "@/lib/components/tokens.stylex";
 import { getFeed } from "@/lib/data/feed";
 import { getPinned } from "@/lib/data/pinned";
-import { getProfile, getVisitorCount } from "@/lib/data/profile";
+import { getProfile } from "@/lib/data/profile";
 import { Feed } from "./_components/feed/Feed";
 import { Footer } from "./_components/Footer";
 import { Header } from "./_components/Header";
@@ -56,7 +56,7 @@ const styles = stylex.create({
 });
 
 export default async function Home() {
-  const [profile, feed, pinned, visitorCount] = await Promise.all([
+  const [profile, feed, pinned] = await Promise.all([
     getProfile(),
     getFeed(),
     // Pins are extras; a broken PDS shouldn't take the page down with it.
@@ -64,7 +64,6 @@ export default async function Home() {
       console.error("Couldn't get pinned items", error);
       return [];
     }),
-    getVisitorCount(),
   ]);
 
   return (
@@ -92,7 +91,6 @@ export default async function Home() {
       <Footer
         name={profile.person.name}
         year={new Date(feed.asOf).getFullYear()}
-        visitorCount={visitorCount}
       />
     </>
   );

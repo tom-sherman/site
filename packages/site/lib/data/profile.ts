@@ -36,7 +36,3 @@ export async function getProfile(): Promise<Profile> {
     ],
   };
 }
-
-export async function getVisitorCount(): Promise<number> {
-  return 4281;
-}
