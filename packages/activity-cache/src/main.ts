@@ -1,6 +1,6 @@
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { SqliteClient } from "@effect/sql-sqlite-node";
-import { Config, Effect, Layer, Option, Schedule } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { mkdirSync } from "node:fs";
 import { createServer } from "node:http";

@@ -15,12 +15,16 @@
   "scripts": {
     "build": "lex build --clear && tsc",
     "lex:install": "lex install",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint"
   },
   "devDependencies": {
     "@atproto/lex": "catalog:",
+    "@repo/lint": "workspace:*",
     "@types/node": "^26.6.5",
     "effect": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependencies": {

@@ -6,6 +6,8 @@ export async function NowBar() {
   await connection();
   const status = await getNowStatus();
   // Read per request, not inside the cached status, so the server-rendered
-  // timer is current and doesn't jump when the client clock takes over.
+  // timer is current and doesn't jump when the client clock takes over. A
+  // server component renders once per request, so this can't drift.
+  // oxlint-disable-next-line react/purity
   return <NowBarView status={status} renderedAt={Date.now()} />;
 }

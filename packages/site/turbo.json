@@ -4,6 +4,7 @@
   "tasks": {
     "build": {
       "env": [
+        "NODE_ENV",
         "ACTIVITY_CACHE_URL",
         "ACTIVITY_CACHE_AUDIENCE",
         "OIDC_SIGNING_KEYS",
@@ -12,6 +13,8 @@
     },
     "dev": {
       "env": [
+        "NODE_ENV",
+        "PORT",
         "ACTIVITY_CACHE_URL",
         "ACTIVITY_CACHE_AUDIENCE",
         "OIDC_SIGNING_KEYS"

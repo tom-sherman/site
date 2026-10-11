@@ -80,7 +80,7 @@ export function Avatar({
     return (
       // Already a small thumbnail on Bluesky's CDN, so not run through
       // next/image's optimizer.
-      // eslint-disable-next-line @next/next/no-img-element
+      // oxlint-disable-next-line nextjs/no-img-element
       <img
         src={image.url}
         alt={image.alt}

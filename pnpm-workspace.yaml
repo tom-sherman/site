@@ -4,7 +4,6 @@ packages:
 allowBuilds:
   core-js: false
   sharp: false
-  unrs-resolver: false
 
 catalog:
   "@atproto/lex": ^0.3.14
@@ -12,4 +11,13 @@ catalog:
   "@effect/sql-sqlite-node": ^4.0.1
   "@effect/vitest": ^4.0.1
   effect: ^4.0.1
+  oxlint: ^1.87.0
+  oxlint-tsgolint: ^7.0.2004
   typescript: ^7.0.0
+
+packageExtensions:
+  # Only its type declarations import eslint; oxlint runs it as a JS plugin.
+  eslint-plugin-turbo:
+    peerDependenciesMeta:
+      eslint:
+        optional: true

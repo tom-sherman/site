@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Deferred, Effect, Exit, Layer, Stream } from "effect";
+import { Deferred, Effect, Exit, Stream } from "effect";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { type WebSocket, WebSocketServer } from "ws";

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "oxlint",
     "check-types": "next typegen && tsc --noEmit",
     "generate-signing-key": "node scripts/generate-signing-key.mts"
   },
@@ -25,6 +25,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@repo/lint": "workspace:*",
     "@stylexjs/babel-plugin": "^0.19.1",
     "@stylexjs/postcss-plugin": "^0.19.1",
     "@types/node": "^26.6.5",
@@ -32,8 +33,8 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.6.1",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:"
   }
 }

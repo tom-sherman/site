@@ -1,0 +1,25 @@
+{
+  "name": "@repo/lint",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:"
+  },
+  "dependencies": {
+    "eslint-plugin-turbo": "^2.11.7"
+  }
+}

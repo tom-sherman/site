@@ -9,7 +9,8 @@
     "dev": "NODE_ENV=development node --watch src/main.ts",
     "start": "node src/main.ts",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "oxlint"
   },
   "dependencies": {
     "@atproto/lex": "catalog:",
@@ -27,8 +28,11 @@
   "devDependencies": {
     "@atproto/crypto": "^0.5.7",
     "@effect/vitest": "catalog:",
+    "@repo/lint": "workspace:*",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
     "vitest": "^5.0.3",
     "ws": "^8.22.0"

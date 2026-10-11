@@ -176,10 +176,15 @@ const start = (filename: string, fakes: ReadonlyArray<Fake>) =>
 const advance = (duration: Duration.Input) =>
   TestClock.adjust(duration).pipe(Effect.andThen(settle));
 
+// Every test activity's data is a string (see `activity`).
 const contents = (cache: ActivityCache["Service"]) =>
   cache
     .query({ limit: 100 })
-    .pipe(Effect.map((items) => items.map((a) => `${a.id}=${a.data}`).sort()));
+    .pipe(
+      Effect.map((items) =>
+        items.map((a) => `${a.id}=${a.data as string}`).sort(),
+      ),
+    );
 
 describe("ActivityCache", () => {
   it.effect("replaces only the refreshed source's rows", () =>
