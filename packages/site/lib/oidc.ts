@@ -7,7 +7,7 @@ import {
   SignJWT,
   type JWK,
 } from "jose";
-import { required } from "./env";
+import { env, required } from "./env";
 
 /**
  * The site is an OpenID provider for its own backend services: it signs
@@ -22,8 +22,8 @@ import { required } from "./env";
  * bound; on Vercel it's the production domain, in previews too.
  */
 export const issuer = () => {
-  if (process.env.NODE_ENV === "development") {
-    return `http://localhost:${process.env.PORT ?? 3000}`;
+  if (env("NODE_ENV") === "development") {
+    return `http://localhost:${env("PORT") ?? 3000}`;
   }
   return `https://${required("VERCEL_PROJECT_PRODUCTION_URL")}`;
 };
@@ -48,9 +48,9 @@ interface SigningKey {
  * In development, when it's unset, a key is generated per `next dev` process.
  */
 const loadKeys = async (): Promise<SigningKey[]> => {
-  const env = process.env.OIDC_SIGNING_KEYS;
-  if (env) {
-    const jwks = JSON.parse(env) as JWK[];
+  const configured = env("OIDC_SIGNING_KEYS");
+  if (configured) {
+    const jwks = JSON.parse(configured) as JWK[];
     if (!Array.isArray(jwks) || jwks.length === 0) {
       throw new Error(
         "OIDC_SIGNING_KEYS must be a non-empty JSON array of JWKs",
@@ -58,7 +58,7 @@ const loadKeys = async (): Promise<SigningKey[]> => {
     }
     return Promise.all(jwks.map(fromPrivateJwk));
   }
-  if (process.env.NODE_ENV !== "development") {
+  if (env("NODE_ENV") !== "development") {
     throw new Error(
       "OIDC_SIGNING_KEYS is not set. Generate one with `pnpm --filter site generate-signing-key`.",
     );

@@ -26,20 +26,46 @@ const envFile = (path: string) =>
     ),
   );
 
+/** Drops unset variables, which `ConfigProvider.fromEnv` doesn't accept. */
+const set = (env: Record<string, string | undefined>) =>
+  Object.fromEntries(
+    Object.entries(env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
+
+/**
+ * Every environment variable the service reads, each by name so
+ * `turbo/no-undeclared-env-vars` can check it against turbo.json. Config
+ * reads nothing else from the environment, so a new variable goes here too.
+ */
+const environment = ConfigProvider.fromEnv({
+  env: set({
+    PORT: process.env.PORT,
+    DATABASE_PATH: process.env.DATABASE_PATH,
+    ATPROTO_DID: process.env.ATPROTO_DID,
+    GITHUB_USER: process.env.GITHUB_USER,
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+    LETTERBOXD_USER: process.env.LETTERBOXD_USER,
+    JETSTREAM_URL: process.env.JETSTREAM_URL,
+    OIDC_ISSUER: process.env.OIDC_ISSUER,
+    OIDC_AUDIENCE: process.env.OIDC_AUDIENCE,
+  }),
+});
+
 /**
  * Environment variables first, then `.env` (gitignored, for local overrides
  * and secrets), then under `pnpm dev` the committed `.env.development`
  * defaults. Loaded here rather than with Node's `--env-file-if-exists`, which
  * crashes `--watch` when the file doesn't exist.
  */
-export const ConfigLayer = ConfigProvider.layerAdd(
+export const ConfigLayer = ConfigProvider.layer(
   Effect.gen(function* () {
-    const nodeEnv = yield* Config.String("NODE_ENV").pipe(
-      Config.withDefault("production"),
-    );
     const files = [".env"];
-    if (nodeEnv === "development") files.push(".env.development");
+    if (process.env.NODE_ENV === "development") files.push(".env.development");
     const providers = yield* Effect.forEach(files, envFile);
-    return providers.reduce((a, b) => ConfigProvider.orElse(a, b));
+    return [environment, ...providers].reduce((a, b) =>
+      ConfigProvider.orElse(a, b),
+    );
   }),
 ).pipe(Layer.provide(NodeFileSystem.layer));

@@ -4,6 +4,7 @@
   "tasks": {
     "dev": {
       "env": [
+        "NODE_ENV",
         "PORT",
         "DATABASE_PATH",
         "ATPROTO_DID",
