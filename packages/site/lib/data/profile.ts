@@ -15,7 +15,7 @@ export const DID = "did:plc:2xau7wbgdq4phuou2ypwuen7";
 
 export const TOM: Person = {
   name: "Tom Sherman",
-  handle: "@tomsherman.dev",
+  handle: "@tom.sherman.is",
   avatar: { alt: "Tom Sherman" },
 };
 
@@ -23,16 +23,16 @@ export async function getProfile(): Promise<Profile> {
   return {
     givenName: "Tom",
     familyName: "Sherman",
-    domain: "tomsherman.dev",
+    domain: "tom.sherman.is",
     intro:
       "Staff Engineer who cares deeply about the open web and design systems.",
     person: TOM,
     links: [
-      { label: "bluesky", url: "https://bsky.app/profile/tomsherman.dev" },
-      { label: "x", url: "https://x.com/tomsherman" },
+      { label: "bluesky", url: "https://bsky.app/profile/tom.sherman.is" },
+      { label: "x", url: "https://x.com/tomus_sherman" },
       { label: "github", url: "https://github.com/tom-sherman" },
       { label: "letterboxd", url: "https://letterboxd.com/tomus" },
-      { label: "last.fm", url: "https://www.last.fm/user/tomsherman" },
+      { label: "last.fm", url: "https://www.last.fm/user/tom-sherman" },
     ],
   };
 }
