@@ -1,0 +1,9 @@
+.git
+.claude
+**/node_modules
+**/.turbo
+**/.next
+**/.env*
+packages/activity-cache/data
+packages/atproto-client/src/lexicons
+packages/atproto-client/src/**/*.js
