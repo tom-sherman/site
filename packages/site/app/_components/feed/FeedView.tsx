@@ -5,7 +5,7 @@ import { Activity, useState, type ReactNode } from "react";
 import { Chip } from "@/lib/components/Chip";
 import { Rule } from "@/lib/components/Text";
 import { TimelineRow } from "@/lib/components/Timeline";
-import { breakpoints, colors, layout } from "@/lib/components/tokens.stylex";
+import { colors, layout } from "@/lib/components/tokens.stylex";
 import type { Timestamp } from "@/lib/data/types";
 import { CATEGORIES, type FeedCategory } from "@/lib/feed";
 import { formatDayLabel } from "@/lib/time";
@@ -18,13 +18,8 @@ const styles = stylex.create({
     top: layout.nowBarHeight,
     zIndex: 10,
     display: "flex",
-    flexWrap: {
-      default: "wrap",
-      [breakpoints.phone]: "nowrap",
-    },
+    flexWrap: "wrap",
     gap: 6,
-    overflowX: "auto",
-    scrollbarWidth: "none",
     paddingBlock: 16,
     backgroundColor: colors.page,
     borderBottomWidth: 1,
