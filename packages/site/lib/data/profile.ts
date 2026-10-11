@@ -32,7 +32,6 @@ export async function getProfile(): Promise<Profile> {
       { label: "x", url: "https://x.com/tomus_sherman" },
       { label: "github", url: "https://github.com/tom-sherman" },
       { label: "letterboxd", url: "https://letterboxd.com/tomus" },
-      { label: "last.fm", url: "https://www.last.fm/user/tom-sherman" },
     ],
   };
 }

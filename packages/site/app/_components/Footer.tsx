@@ -30,13 +30,7 @@ const styles = stylex.create({
   },
 });
 
-export function Footer({
-  name,
-  year,
-}: {
-  name: string;
-  year: number;
-}) {
+export function Footer({ name, year }: { name: string; year: number }) {
   return (
     <footer {...stylex.props(styles.footer)}>
       <Container style={styles.inner}>
@@ -51,7 +45,7 @@ export function Footer({
           <Eyebrow as="h2" style={x.marginBottom._6px}>
             Sources
           </Eyebrow>
-          Feed pulled from Bluesky, X, Letterboxd, Last.fm, Steam and GitHub.
+          Feed pulled from AT Protocol, Letterboxd, and GitHub.
         </div>
         <div {...stylex.props(styles.signoff)}>
           <Marginalia variant="sticker">
@@ -62,4 +56,3 @@ export function Footer({
     </footer>
   );
 }
-
