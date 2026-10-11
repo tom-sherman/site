@@ -28,16 +28,9 @@ const styles = stylex.create({
   sm: { width: 24, height: 24 },
   md: { width: 28, height: 28 },
   lg: { width: 34, height: 34 },
-  // Scales with the surrounding text, e.g. the name in the header.
-  display: {
-    width: "0.72em",
-    height: "0.72em",
-    backgroundImage: `repeating-linear-gradient(135deg, oklch(0.8 0.17 125) 0 2px, ${colors.accent} 2px 8px)`,
-  },
   smLabel: { fontSize: 9 },
   mdLabel: { fontSize: 9.5 },
   lgLabel: { fontSize: 11 },
-  displayLabel: { fontSize: 11 },
   stack: {
     display: "flex",
   },
@@ -51,13 +44,12 @@ const styles = stylex.create({
   },
 });
 
-type Size = "xs" | "sm" | "md" | "lg" | "display";
+type Size = "xs" | "sm" | "md" | "lg";
 
 const labelSizes = {
   sm: styles.smLabel,
   md: styles.mdLabel,
   lg: styles.lgLabel,
-  display: styles.displayLabel,
 };
 
 /**
@@ -76,7 +68,7 @@ export function Avatar({
 }) {
   const tint =
     image.hue === undefined ? styles.accent : styles.tinted(image.hue);
-  if (image.url && size !== "display") {
+  if (image.url) {
     return (
       // Already a small thumbnail on Bluesky's CDN, so not run through
       // next/image's optimizer.
@@ -100,7 +92,7 @@ export function Avatar({
       {/* Too small for initials; just the tint. */}
       {size !== "xs" && (
         <span aria-hidden {...stylex.props(labelSizes[size])}>
-          {size === "display" ? "photo" : initials(name)}
+          {initials(name)}
         </span>
       )}
     </span>

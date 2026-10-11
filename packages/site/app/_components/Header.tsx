@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Avatar } from "@/lib/components/Avatar";
+import Image from "next/image";
 import { Container } from "@/lib/components/Container";
 import { Glyph } from "@/lib/components/Glyph";
 import { RelativeTime } from "@/lib/components/RelativeTime";
@@ -7,6 +7,8 @@ import { Marginalia, TextLink } from "@/lib/components/Text";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { Profile } from "@/lib/data/profile";
 import type { Timestamp } from "@/lib/data/types";
+// My Bluesky profile photo as of October 2026.
+import photo from "./avatar.webp";
 
 const styles = stylex.create({
   header: {
@@ -46,6 +48,14 @@ const styles = stylex.create({
     minWidth: 0,
     fontSize: "inherit",
     fontWeight: 400,
+  },
+  avatar: {
+    flexShrink: 0,
+    // Scales with the name it sits in.
+    width: "0.72em",
+    height: "0.72em",
+    borderRadius: "50%",
+    objectFit: "cover",
   },
   family: {
     fontStyle: "italic",
@@ -105,13 +115,7 @@ export function Header({
       <div {...stylex.props(styles.nameLine)}>
         <h1 {...stylex.props(styles.name)}>
           <span>{profile.givenName}</span>
-          <span aria-hidden>
-            <Avatar
-              name={profile.person.name}
-              image={profile.person.avatar}
-              size="display"
-            />
-          </span>
+          <HeaderAvatar />
           <em {...stylex.props(styles.family)}>{profile.familyName}</em>
         </h1>
         <Marginalia style={styles.marginalia}>
@@ -129,5 +133,21 @@ export function Header({
         </nav>
       </div>
     </Container>
+  );
+}
+
+/** My photo, between my given and family names. */
+function HeaderAvatar() {
+  return (
+    <Image
+      src={photo}
+      // Decorative: it would otherwise be read out as part of the heading.
+      alt=""
+      // 0.72em of the name's `clamp(60px, 11vw, 136px)`.
+      sizes="(min-width: 1237px) 98px, (min-width: 546px) 8vw, 43px"
+      loading="eager"
+      placeholder="blur"
+      {...stylex.props(styles.avatar)}
+    />
   );
 }
