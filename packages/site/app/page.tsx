@@ -73,8 +73,10 @@ export default async function Home() {
       </Suspense>
       <Header
         profile={profile}
-        lastActivityAt={feed.items[0]?.publishedAt}
-        asOf={feed.asOf}
+        page="feed"
+        lastActivity={
+          feed.items[0] && { at: feed.items[0].publishedAt, asOf: feed.asOf }
+        }
       />
       <Container as="main" style={styles.main}>
         <div {...stylex.props(styles.rail)}>

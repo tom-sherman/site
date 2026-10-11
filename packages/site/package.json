@@ -13,6 +13,7 @@
   "dependencies": {
     "@atcute/bluesky-richtext-segmenter": "^3.0.2",
     "@atproto/lex": "catalog:",
+    "@calcom/embed-react": "^1.5.3",
     "@repo/activity-cache": "workspace:*",
     "@repo/atproto-client": "workspace:*",
     "@stylexjs/atoms": "^0.19.1",

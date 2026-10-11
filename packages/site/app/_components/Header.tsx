@@ -90,25 +90,31 @@ const styles = stylex.create({
 
 export function Header({
   profile,
-  lastActivityAt,
-  asOf,
+  page,
+  lastActivity,
 }: {
   profile: Profile;
-  lastActivityAt: Timestamp | undefined;
-  asOf: Timestamp;
+  /** The current page, shown after the domain in the breadcrumb. */
+  page: string;
+  lastActivity?: { at: Timestamp; asOf: Timestamp };
 }) {
   return (
     <Container as="header" style={styles.header}>
       <div {...stylex.props(styles.breadcrumb)}>
-        <span>{profile.domain}</span>
+        <TextLink href="/" variant="quiet">
+          {profile.domain}
+        </TextLink>
         <span aria-hidden>/</span>
         <span aria-current="page" {...stylex.props(styles.current)}>
-          feed
+          {page}
         </span>
-        {lastActivityAt !== undefined && (
+        {lastActivity !== undefined && (
           <span {...stylex.props(styles.updated)}>
             last activity{" "}
-            <RelativeTime timestamp={lastActivityAt} asOf={asOf} />
+            <RelativeTime
+              timestamp={lastActivity.at}
+              asOf={lastActivity.asOf}
+            />
           </span>
         )}
       </div>
