@@ -3,6 +3,8 @@ import { Geist, Instrument_Serif, Martian_Mono } from "next/font/google";
 import * as stylex from "@stylexjs/stylex";
 import { colors, fonts } from "@/lib/components/tokens.stylex";
 import "./globals.css";
+// My Bluesky profile photo, as in the header.
+import avatar from "./_components/avatar.webp";
 
 const geist = Geist({
   variable: "--font-geist",
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
   title: "Tom Sherman",
   description:
     "Staff Engineer who cares deeply about the open web and design systems.",
+  icons: { icon: avatar.src },
 };
 
 const styles = stylex.create({
