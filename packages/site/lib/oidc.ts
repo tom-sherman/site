@@ -16,8 +16,17 @@ import { required } from "./env";
  * client is the site itself.
  */
 
-/** Issuer identifier. Services require the discovered metadata to match it exactly. */
-export const issuer = () => required("OIDC_ISSUER");
+/**
+ * Issuer identifier. Services require the discovered metadata to match it
+ * exactly, so it has no trailing slash. `next dev` sets `PORT` to the port it
+ * bound; on Vercel it's the production domain, in previews too.
+ */
+export const issuer = () => {
+  if (process.env.NODE_ENV === "development") {
+    return `http://localhost:${process.env.PORT ?? 3000}`;
+  }
+  return `https://${required("VERCEL_PROJECT_PRODUCTION_URL")}`;
+};
 
 /** The site, as both the token's subject and the client it was issued to. */
 const CLIENT_ID = "site";

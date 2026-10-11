@@ -8,7 +8,6 @@ Configuration comes from environment variables. Under `pnpm dev`, the committed 
 
 | env                       | default                                               |
 | ------------------------- | ----------------------------------------------------- |
-| `OIDC_ISSUER`             | required (dev: `http://localhost:3000`)               |
 | `OIDC_SIGNING_KEYS`       | required for builds; see [Auth](#auth)                |
 | `ACTIVITY_CACHE_URL`      | required (dev: `http://localhost:3001`)               |
 | `ACTIVITY_CACHE_AUDIENCE` | required (dev: `activity-cache`), its `OIDC_AUDIENCE` |
@@ -19,8 +18,8 @@ The site is an OpenID provider for its own backend services, like the [activity 
 
 - `/.well-known/openid-configuration` gives the `issuer` and `jwks_uri`. There's no authorization or token endpoint; tokens are only minted in-process, by `accessToken` in `lib/oidc.ts`.
 - `/.well-known/jwks.json` publishes the public half of every signing key.
-- Both are prerendered, so `OIDC_ISSUER` and `OIDC_SIGNING_KEYS` must be set when building, and changing them needs a rebuild.
-- `OIDC_ISSUER` must match each service's configured issuer exactly, with no trailing slash.
+- The issuer is `http://localhost:$PORT` under `next dev`, and otherwise `https://$VERCEL_PROJECT_PRODUCTION_URL`, which Vercel sets in production and preview builds. It must match each service's `OIDC_ISSUER` exactly.
+- Both are prerendered, so `OIDC_SIGNING_KEYS` must be set when building, and changing it or the production domain needs a rebuild.
 - `activityCache` in `lib/activity-cache.ts` calls the activity cache with a fresh token, through an Effect `HttpApiClient` built from the cache's API definition, so responses are decoded against its schemas.
 
 ### Signing keys
