@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "env": [
+        "PORT",
+        "DATABASE_PATH",
+        "ATPROTO_DID",
+        "GITHUB_USER",
+        "GITHUB_TOKEN",
+        "LETTERBOXD_USER",
+        "JETSTREAM_URL",
+        "OIDC_ISSUER",
+        "OIDC_AUDIENCE"
+      ]
+    }
+  }
+}

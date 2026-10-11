@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": [
+        "ACTIVITY_CACHE_URL",
+        "ACTIVITY_CACHE_AUDIENCE",
+        "OIDC_SIGNING_KEYS",
+        "VERCEL_PROJECT_PRODUCTION_URL"
+      ]
+    },
+    "dev": {
+      "env": [
+        "ACTIVITY_CACHE_URL",
+        "ACTIVITY_CACHE_AUDIENCE",
+        "OIDC_SIGNING_KEYS"
+      ]
+    }
+  }
+}
