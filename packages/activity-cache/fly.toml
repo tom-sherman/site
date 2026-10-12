@@ -19,7 +19,7 @@ primary_region = 'lhr'
 
 [env]
   # Must match the site's OIDC_ISSUER exactly, with no trailing slash.
-  OIDC_ISSUER = 'https://site-iota-rose-87.vercel.app'
+  OIDC_ISSUER = 'https://tom.sherman.is'
   OIDC_AUDIENCE = 'activity-cache'
 
 [mounts]
