@@ -69,7 +69,7 @@ export default async function Home() {
   return (
     <>
       <Suspense fallback={<NowBarShell />}>
-        <NowBar lastActivityAt={feed.items[0]?.publishedAt ?? null} />
+        <NowBar />
       </Suspense>
       <Header profile={profile} page="feed" />
       <Container as="main" style={styles.main}>
