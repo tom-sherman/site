@@ -1,0 +1,42 @@
+# Deploys activity-cache to Fly.io on every push to main that touches it.
+# Needs a FLY_API_TOKEN secret on the `production` environment, made with:
+#
+#   fly tokens create deploy -a tom-activity-cache -x 999999h
+#
+# See https://fly.io/docs/launch/continuous-deployment-with-github-actions/
+
+name: Fly Deploy
+
+on:
+  push:
+    branches:
+      - main
+    # Everything the Dockerfile's pruned build can see. Other packages are
+    # pruned out, so changing them wouldn't change the image.
+    paths:
+      - packages/activity-cache/**
+      - packages/atproto-client/**
+      - packages/lint/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .dockerignore
+      - .github/workflows/fly-deploy.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy activity-cache
+    runs-on: ubuntu-latest
+    environment: production
+    # Queue deploys rather than racing them against the single machine.
+    concurrency: deploy-activity-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+      # The Dockerfile needs the whole monorepo as its build context, so
+      # deploy from the repo root.
+      - run: flyctl deploy --remote-only --config packages/activity-cache/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
