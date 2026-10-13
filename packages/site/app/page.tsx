@@ -69,15 +69,9 @@ export default async function Home() {
   return (
     <>
       <Suspense fallback={<NowBarShell />}>
-        <NowBar />
+        <NowBar lastActivityAt={feed.items[0]?.publishedAt ?? null} />
       </Suspense>
-      <Header
-        profile={profile}
-        page="feed"
-        lastActivity={
-          feed.items[0] && { at: feed.items[0].publishedAt, asOf: feed.asOf }
-        }
-      />
+      <Header profile={profile} page="feed" />
       <Container as="main" style={styles.main}>
         <div {...stylex.props(styles.rail)}>
           <PinnedRail items={pinned} asOf={feed.asOf} />

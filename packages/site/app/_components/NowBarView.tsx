@@ -15,6 +15,7 @@ import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Tag } from "@/lib/components/Text";
 import { breakpoints, colors, layout } from "@/lib/components/tokens.stylex";
 import type { NowActivity, NowStatus } from "@/lib/data/now";
+import type { Timestamp } from "@/lib/data/types";
 import { formatClock, formatMinutes, formatTimestamp } from "@/lib/time";
 import { useNow } from "@/lib/use-now";
 import { NowBarShell } from "./NowBarShell";
@@ -195,9 +196,12 @@ function endedAt(activity: NowActivity, now: number): number | null {
 
 export function NowBarView({
   status,
+  lastActivityAt,
   renderedAt,
 }: {
   status: NowStatus;
+  /** When the newest feed item was published. `null` when there isn't one. */
+  lastActivityAt: Timestamp | null;
   /** The server's clock when this rendered, used until hydration. */
   renderedAt: number;
 }) {
@@ -211,12 +215,23 @@ export function NowBarView({
           <span {...stylex.props(styles.dot)} />
           Offline
         </Tag>
-        {status.lastSeenAt !== null && (
-          <span {...stylex.props(styles.activity)}>
-            <span {...stylex.props(styles.dim)}>Last seen </span>
-            <RelativeTime timestamp={status.lastSeenAt} asOf={renderedAt} />
-          </span>
-        )}
+        <span {...stylex.props(styles.activity)}>
+          {status.lastSeenAt !== null && (
+            <>
+              <span {...stylex.props(styles.dim)}>Last seen </span>
+              <RelativeTime timestamp={status.lastSeenAt} asOf={renderedAt} />
+            </>
+          )}
+          {status.lastSeenAt !== null && lastActivityAt !== null && (
+            <span {...stylex.props(styles.dim)}> · </span>
+          )}
+          {lastActivityAt !== null && (
+            <>
+              <span {...stylex.props(styles.dim)}>Last activity </span>
+              <RelativeTime timestamp={lastActivityAt} asOf={renderedAt} />
+            </>
+          )}
+        </span>
       </NowBarShell>
     );
   }
