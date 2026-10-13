@@ -43,7 +43,7 @@ export const shadows = stylex.defineVars({
 
 export const layout = stylex.defineVars({
   contentWidth: "1240px",
-  pagePadding: "clamp(12px, 3vw, 24px)",
+  pagePadding: "clamp(10px, 2.5vw, 20px)",
   nowBarHeight: "40px",
   // Wide enough for a T-minus stamp with two-digit days (`T−12d03h`).
   timelineTime: {
