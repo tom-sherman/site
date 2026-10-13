@@ -2,11 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import Image from "next/image";
 import { Container } from "@/lib/components/Container";
 import { Glyph } from "@/lib/components/Glyph";
-import { RelativeTime } from "@/lib/components/RelativeTime";
 import { Marginalia, TextLink } from "@/lib/components/Text";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { Profile } from "@/lib/data/profile";
-import type { Timestamp } from "@/lib/data/types";
 // My Bluesky profile photo as of October 2026.
 import photo from "./avatar.webp";
 
@@ -25,9 +23,6 @@ const styles = stylex.create({
   },
   current: {
     color: colors.ink,
-  },
-  updated: {
-    marginLeft: "auto",
   },
   nameLine: {
     display: "flex",
@@ -91,12 +86,10 @@ const styles = stylex.create({
 export function Header({
   profile,
   page,
-  lastActivity,
 }: {
   profile: Profile;
   /** The current page, shown after the domain in the breadcrumb. */
   page: string;
-  lastActivity?: { at: Timestamp; asOf: Timestamp };
 }) {
   return (
     <Container as="header" style={styles.header}>
@@ -108,15 +101,6 @@ export function Header({
         <span aria-current="page" {...stylex.props(styles.current)}>
           {page}
         </span>
-        {lastActivity !== undefined && (
-          <span {...stylex.props(styles.updated)}>
-            last activity{" "}
-            <RelativeTime
-              timestamp={lastActivity.at}
-              asOf={lastActivity.asOf}
-            />
-          </span>
-        )}
       </div>
       <div {...stylex.props(styles.nameLine)}>
         <h1 {...stylex.props(styles.name)}>
