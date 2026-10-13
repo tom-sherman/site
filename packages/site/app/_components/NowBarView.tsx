@@ -202,7 +202,6 @@ export function NowBarView({
   renderedAt: number;
 }) {
   const [index, setIndex] = useState(0);
-  const now = useNow(renderedAt, 1000);
   const { activities } = status;
 
   if (!activities.length) {
@@ -237,7 +236,7 @@ export function NowBarView({
             exit={rollOutClass}
             default="none"
           >
-            <ActivityFace activity={activity} now={now} />
+            <ActivityFace activity={activity} renderedAt={renderedAt} />
           </ViewTransition>
         </Activity>
       ))}
@@ -257,11 +256,12 @@ export function NowBarView({
 
 function ActivityFace({
   activity,
-  now,
+  renderedAt,
 }: {
   activity: NowActivity;
-  now: number;
+  renderedAt: number;
 }) {
+  const now = useNow(renderedAt, 1000);
   const elapsed = Math.max(0, Math.floor((now - activity.startedAt) / 1000));
   const duration = activity.durationSeconds;
   const ended = endedAt(activity, now);
