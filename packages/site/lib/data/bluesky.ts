@@ -5,9 +5,10 @@ import type { ImageRef } from "./types";
 import { truncate } from "./util";
 
 export type PostView = app.bsky.feed.defs.PostView;
+export type ProfileView = app.bsky.actor.defs.ProfileViewDetailed;
 
-/** `getPosts` takes at most 25 URIs. */
-const POSTS_PER_REQUEST = 25;
+/** `getPosts` takes at most 25 URIs, and `getProfiles` 25 actors. */
+const PER_REQUEST = 25;
 
 const appview = new Client("https://public.api.bsky.app");
 
@@ -18,12 +19,8 @@ const appview = new Client("https://public.api.bsky.app");
 export async function getPostViews(
   uris: string[],
 ): Promise<Map<string, PostView>> {
-  const batches: string[][] = [];
-  for (let i = 0; i < uris.length; i += POSTS_PER_REQUEST) {
-    batches.push(uris.slice(i, i + POSTS_PER_REQUEST));
-  }
   const responses = await Promise.all(
-    batches.map((batch) =>
+    batchesOf(uris).map((batch) =>
       appview.call(app.bsky.feed.getPosts, {
         uris: batch as l.AtUriString[],
       }),
@@ -32,6 +29,35 @@ export async function getPostViews(
   return new Map(
     responses.flatMap(({ posts }) => posts.map((post) => [post.uri, post])),
   );
+}
+
+/**
+ * Profiles from Bluesky's AppView, by DID. Accounts that are missing
+ * (deleted, deactivated, or taken down) are left out.
+ */
+export async function getProfileViews(
+  dids: string[],
+): Promise<Map<string, ProfileView>> {
+  const responses = await Promise.all(
+    batchesOf(dids).map((batch) =>
+      appview.call(app.bsky.actor.getProfiles, {
+        actors: batch as l.DidString[],
+      }),
+    ),
+  );
+  return new Map(
+    responses.flatMap(({ profiles }) =>
+      profiles.map((profile) => [profile.did, profile]),
+    ),
+  );
+}
+
+function batchesOf(items: string[]): string[][] {
+  const batches: string[][] = [];
+  for (let i = 0; i < items.length; i += PER_REQUEST) {
+    batches.push(items.slice(i, i + PER_REQUEST));
+  }
+  return batches;
 }
 
 /** The first image, from an images embed or a quote post with images. */
@@ -61,6 +87,11 @@ export function cdnImageUrl(
 export function bskyUrl(uri: string) {
   const [, , did, , rkey] = uri.split("/");
   return `https://bsky.app/profile/${did}/post/${rkey}`;
+}
+
+/** An account on bsky.app, by DID. */
+export function bskyProfileUrl(did: string) {
+  return `https://bsky.app/profile/${did}`;
 }
 
 /** A called-out thread's own title, or else how its first post starts. */

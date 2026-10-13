@@ -89,6 +89,14 @@ export interface RepostItem extends FeedItemBase {
   likes: number;
 }
 
+/** A Bluesky account I followed. */
+export interface FollowItem extends FeedItemBase {
+  kind: "follow";
+  network: "bluesky";
+  /** Who; missing when they couldn't be hydrated. */
+  person?: Person;
+}
+
 export interface FilmRatingItem extends FeedItemBase {
   kind: "film-rating";
   title: string;
@@ -133,6 +141,7 @@ export type FeedItem =
   | ReplyItem
   | LikeItem
   | RepostItem
+  | FollowItem
   | FilmRatingItem
   | TrackItem
   | GameSessionItem

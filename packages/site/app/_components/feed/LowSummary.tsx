@@ -111,6 +111,7 @@ const styles = stylex.create({
 const KINDS = [
   "reply",
   "like",
+  "follow",
   "track",
   "game-session",
   "episode",
@@ -118,11 +119,11 @@ const KINDS = [
 ] as const satisfies FeedItem["kind"][];
 
 /**
- * All of a day's passive activity (replies, likes, songs, games, episodes,
- * GitHub events) collapsed into one line per kind, each showing its newest
- * item, e.g. `♫ Song — Artist +13 more`, and opening on its own to show them
- * all. A reply's text stays hidden until its view button is pressed. Each line
- * shows only while the feed's filter takes in its kind.
+ * All of a day's passive activity (replies, likes, follows, songs, games,
+ * episodes, GitHub events) collapsed into one line per kind, each showing its
+ * newest item, e.g. `♫ Song — Artist +13 more`, and opening on its own to
+ * show them all. A reply's text stays hidden until its view button is
+ * pressed. Each line shows only while the feed's filter takes in its kind.
  */
 export function LowSummary({
   items,
@@ -236,9 +237,11 @@ function Swatch({ item }: { item: FeedItem }) {
         ? item.cover
         : item.kind === "like"
           ? item.author?.avatar
-          : item.kind === "reply" && item.replyTo?.kind === "person"
-            ? item.replyTo.person.avatar
-            : undefined;
+          : item.kind === "follow"
+            ? item.person?.avatar
+            : item.kind === "reply" && item.replyTo?.kind === "person"
+              ? item.replyTo.person.avatar
+              : undefined;
   if (!art) return <span {...stylex.props(styles.swatch, styles.noArt)} />;
   return <Artwork image={art} variant="cover" style={styles.swatch} />;
 }

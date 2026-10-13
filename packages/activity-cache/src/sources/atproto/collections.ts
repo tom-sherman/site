@@ -109,5 +109,6 @@ export const collections: ReadonlyArray<CollectionHandler> = [
   }),
   recordCollection(app.bsky.feed.like, { timestamp: (r) => r.createdAt }),
   recordCollection(app.bsky.feed.repost, { timestamp: (r) => r.createdAt }),
+  recordCollection(app.bsky.graph.follow, { timestamp: (r) => r.createdAt }),
   recordCollection(fm.teal.feed.play, { timestamp: (r) => r.playedTime }),
 ];

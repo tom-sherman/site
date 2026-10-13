@@ -33,6 +33,7 @@ export function categoryOf(item: FeedItem): FeedCategory {
     case "reply":
     case "like":
     case "repost":
+    case "follow":
       return "posts";
     case "film-review":
     case "film-rating":
@@ -59,6 +60,7 @@ export function priorityOf(item: FeedItem): Priority {
       return "medium";
     case "reply":
     case "like":
+    case "follow":
     case "track":
     case "game-session":
     case "episode":
@@ -133,6 +135,10 @@ export function labelOf(item: FeedItem): string {
       return item.author
         ? `Liked a post by ${item.author.handle}`
         : "Liked a post";
+    case "follow":
+      return item.person
+        ? `Followed ${item.person.handle}`
+        : "Followed someone";
     case "repost":
       return `Reposted a post by ${item.author.handle}`;
     case "film-rating":

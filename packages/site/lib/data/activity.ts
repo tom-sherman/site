@@ -3,16 +3,20 @@ import type { ActivityItem } from "@repo/activity-cache/api";
 import { app } from "@repo/atproto-client";
 import { activityCache } from "../activity-cache";
 import {
+  bskyProfileUrl,
   bskyUrl,
   getPostViews,
+  getProfileViews,
   imageOf,
   type PostView,
+  type ProfileView,
   threadTitle,
 } from "./bluesky";
 import type {
   FeedItem,
   FilmRatingItem,
   FilmReviewItem,
+  FollowItem,
   GitHubEventItem,
   LikeItem,
   PostItem,
@@ -31,6 +35,7 @@ type Post = Of<"app.bsky.feed.post">;
 type Thread = Of<"is.sherman.unspecced.thread">;
 type Like = Of<"app.bsky.feed.like">;
 type Repost = Of<"app.bsky.feed.repost">;
+type Follow = Of<"app.bsky.graph.follow">;
 type Play = Of<"fm.teal.feed.play">;
 type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
 type Rating = Of<"letterboxd.rating">;
@@ -47,17 +52,21 @@ const PAGE_SIZE = 500;
 
 /**
  * Everything in the activity cache (the last 30 days) as feed items. Posts
- * are hydrated from Bluesky's AppView for counts, authors and images; if
- * that fails they're shown from their records alone.
+ * are hydrated from Bluesky's AppView for counts, authors and images, and
+ * follows for who; if that fails they're shown from their records alone.
  */
 export async function getActivityFeedItems(): Promise<FeedItem[]> {
   const activity = await getAllActivity();
-  const views = await getPostViews(urisToHydrate(activity)).catch(
-    (error: unknown) => {
+  const [views, profiles] = await Promise.all([
+    getPostViews(urisToHydrate(activity)).catch((error: unknown) => {
       console.error("Couldn't hydrate posts from Bluesky", error);
       return new Map<string, PostView>();
-    },
-  );
+    }),
+    getProfileViews(didsToHydrate(activity)).catch((error: unknown) => {
+      console.error("Couldn't hydrate profiles from Bluesky", error);
+      return new Map<string, ProfileView>();
+    }),
+  ]);
   // My posts' text, for self-replies, so quoting them doesn't need the AppView.
   const texts = new Map<string, string>();
   for (const item of activity) {
@@ -69,12 +78,16 @@ export async function getActivityFeedItems(): Promise<FeedItem[]> {
           : [];
     for (const post of posts) texts.set(post.id, post.data.text);
   }
-  return activity.flatMap((item) => toFeedItem(item, { views, texts }) ?? []);
+  return activity.flatMap(
+    (item) => toFeedItem(item, { views, profiles, texts }) ?? [],
+  );
 }
 
 interface Hydration {
   /** Posts from the AppView, by at-uri. */
   views: ReadonlyMap<string, PostView>;
+  /** Profiles from the AppView, by DID. */
+  profiles: ReadonlyMap<string, ProfileView>;
   /** The text of my cached posts, by at-uri. */
   texts: ReadonlyMap<string, string>;
 }
@@ -106,6 +119,8 @@ function toFeedItem(
       return likeItem(item, hydration.views);
     case "app.bsky.feed.repost":
       return repostItem(item, hydration.views);
+    case "app.bsky.graph.follow":
+      return followItem(item, hydration.profiles);
     case "fm.teal.feed.play":
       return trackItem(item);
     case "letterboxd.rating":
@@ -137,6 +152,15 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
     }
   }
   return [...uris];
+}
+
+/** The accounts I followed. */
+function didsToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
+  const dids = new Set<string>();
+  for (const item of activity) {
+    if (item.type === "app.bsky.graph.follow") dids.add(item.data.subject);
+  }
+  return [...dids];
 }
 
 function postItem(post: Post, hydration: Hydration): PostItem | ReplyItem {
@@ -267,6 +291,26 @@ function repostItem(
     text: view.record.text,
     facets: view.record.facets,
     likes: view.likeCount ?? 0,
+  };
+}
+
+/**
+ * A follow of an account. Without the AppView, or once the account's gone,
+ * it's just "Followed someone".
+ */
+function followItem(
+  follow: Follow,
+  profiles: ReadonlyMap<string, ProfileView>,
+): FollowItem {
+  const did = follow.data.subject;
+  const profile = profiles.get(did);
+  return {
+    kind: "follow",
+    id: follow.id,
+    url: bskyProfileUrl(did),
+    publishedAt: follow.timestamp,
+    network: "bluesky",
+    person: profile && personOf(profile),
   };
 }
 
@@ -428,7 +472,7 @@ function describe(event: GitHubEvent): { description: string; url: string } {
   }
 }
 
-function personOf(profile: PostView["author"]): Person {
+function personOf(profile: PostView["author"] | ProfileView): Person {
   const name = profile.displayName?.trim() || profile.handle;
   return {
     name,

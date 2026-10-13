@@ -28,7 +28,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, keyed by `type`, so `data` is typed per type:
 
-- **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
+- **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `app.bsky.feed.repost`, `app.bsky.graph.follow`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
 - **GitHub events** (`github.PushEvent`, …): `data` is `{ actor, repo, payload }`, with only the payload fields the schema lists.
 - **Letterboxd diary entries** (`letterboxd.rating`, `letterboxd.review`): `data` is the entry's `url`, its `film` (title, year, poster, TMDB id), `watchedDate`, `rewatch`, `liked` and `rating`, plus for a review its text (`review`) and whether it's marked as having `spoilers`.
 

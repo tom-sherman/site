@@ -88,10 +88,10 @@ const defaultWrites: ReadonlyArray<Write> = [
   },
   {
     // Not a cached collection.
-    collection: "app.bsky.graph.follow",
+    collection: "app.bsky.graph.block",
     rkey: "3mxafgjedwc2a",
     record: {
-      $type: "app.bsky.graph.follow",
+      $type: "app.bsky.graph.block",
       subject: "did:plc:someoneelsesomeoneelse0",
       createdAt: new Date(NOW).toISOString(),
     },
@@ -398,7 +398,7 @@ describe("AtprotoRepo", () => {
       );
       assert.strictEqual(
         source.fingerprint,
-        `did=${DID};collections=app.bsky.feed.like@1,app.bsky.feed.post@2,app.bsky.feed.repost@1,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
+        `did=${DID};collections=app.bsky.feed.like@1,app.bsky.feed.post@2,app.bsky.feed.repost@1,app.bsky.graph.follow@1,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
       );
     }),
   );
@@ -510,8 +510,8 @@ describe("AtprotoRepo follow", () => {
                 },
               }),
               // Not cached, but the rev still moves on.
-              put(15, "app.bsky.graph.follow", "3mxafgjedwc2a", {
-                $type: "app.bsky.graph.follow",
+              put(15, "app.bsky.graph.block", "3mxafgjedwc2a", {
+                $type: "app.bsky.graph.block",
               }),
               // Edited, but older than what's kept.
               put(
@@ -612,8 +612,8 @@ describe("AtprotoRepo follow", () => {
           options.cursor === 5
             ? Stream.fail(new CursorTooOld({ cursor: 5 }))
             : Stream.make(
-                put(31, "app.bsky.graph.follow", "3mxafgjedwc2a", {
-                  $type: "app.bsky.graph.follow",
+                put(31, "app.bsky.graph.block", "3mxafgjedwc2a", {
+                  $type: "app.bsky.graph.block",
                 }),
               ),
         "5",
@@ -637,8 +637,8 @@ describe("AtprotoRepo follow", () => {
       const { exit, log } = yield* follow(
         () =>
           Stream.make(
-            put(41, "app.bsky.graph.follow", "3mxafgjedwc2a", {
-              $type: "app.bsky.graph.follow",
+            put(41, "app.bsky.graph.block", "3mxafgjedwc2a", {
+              $type: "app.bsky.graph.block",
             }),
           ),
         "40",
