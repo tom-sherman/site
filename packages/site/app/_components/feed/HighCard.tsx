@@ -99,19 +99,21 @@ const styles = stylex.create({
   stats: {
     marginLeft: 6,
   },
+  // Contains the floated poster.
   reviewBody: {
-    display: "grid",
-    gridTemplateColumns: "clamp(84px, 18%, 120px) minmax(0, 1fr)",
-    gap: 24,
+    display: "flow-root",
     padding: 24,
   },
+  // Floated so the review's text wraps around the poster, then under it.
+  posterFrame: {
+    float: "left",
+    width: "clamp(84px, 18%, 120px)",
+    marginRight: 24,
+    marginBottom: 12,
+  },
   poster: {
-    // Images don't stretch to their grid column like the placeholder does.
     width: "100%",
     aspectRatio: "2 / 3",
-  },
-  reviewMain: {
-    minWidth: 0,
   },
   reviewHeading: {
     display: "flex",
@@ -222,33 +224,30 @@ function ThreadBody({ item }: { item: ThreadItem }) {
 function FilmReviewBody({ item }: { item: FilmReviewItem }) {
   return (
     <div {...stylex.props(styles.reviewBody)}>
-      <Artwork
-        image={item.poster}
-        variant="poster"
-        caption="poster"
-        style={styles.poster}
-      />
-      <div {...stylex.props(styles.reviewMain)}>
-        <div {...stylex.props(styles.reviewHeading)}>
-          <h3 {...stylex.props(styles.reviewTitle)}>{item.title}</h3>
-          {item.year !== undefined && (
-            <span {...stylex.props(styles.year)}>{item.year}</span>
-          )}
-        </div>
-        {(item.rating !== undefined || item.liked) && (
-          <div
-            aria-label={filmRatingLabel(item)}
-            {...stylex.props(styles.stars)}
-          >
-            {item.liked && <Glyph name="liked" />}
-            {item.liked && item.rating !== undefined && " "}
-            {item.rating !== undefined && formatStars(item.rating)}
-          </div>
-        )}
-        <p {...stylex.props(styles.excerpt, styles.reviewExcerpt)}>
-          {item.excerpt}
-        </p>
+      <div {...stylex.props(styles.posterFrame)}>
+        <Artwork
+          image={item.poster}
+          variant="poster"
+          caption="poster"
+          style={styles.poster}
+        />
       </div>
+      <div {...stylex.props(styles.reviewHeading)}>
+        <h3 {...stylex.props(styles.reviewTitle)}>{item.title}</h3>
+        {item.year !== undefined && (
+          <span {...stylex.props(styles.year)}>{item.year}</span>
+        )}
+      </div>
+      {(item.rating !== undefined || item.liked) && (
+        <div aria-label={filmRatingLabel(item)} {...stylex.props(styles.stars)}>
+          {item.liked && <Glyph name="liked" />}
+          {item.liked && item.rating !== undefined && " "}
+          {item.rating !== undefined && formatStars(item.rating)}
+        </div>
+      )}
+      <p {...stylex.props(styles.excerpt, styles.reviewExcerpt)}>
+        {item.excerpt}
+      </p>
     </div>
   );
 }
