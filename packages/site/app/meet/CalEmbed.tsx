@@ -19,7 +19,8 @@ const styles = stylex.create({
     isolation: "isolate",
   },
   layer: {
-    gridArea: "1 / 1",
+    gridRow: 1,
+    gridColumn: 1,
     minWidth: 0,
   },
   // Cal's own loader sits at `z-index: 999999999999`; keep it (and the rest

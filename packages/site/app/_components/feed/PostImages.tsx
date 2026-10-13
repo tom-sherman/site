@@ -106,7 +106,8 @@ const styles = stylex.create({
     minWidth: 0,
   },
   caption: {
-    gridArea: "1 / 1",
+    gridRow: 1,
+    gridColumn: 1,
     maxWidth: "80ch",
     lineHeight: 1.5,
     textWrap: "pretty",

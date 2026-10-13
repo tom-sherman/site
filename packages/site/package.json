@@ -28,6 +28,7 @@
   "devDependencies": {
     "@repo/lint": "workspace:*",
     "@stylexjs/babel-plugin": "^0.19.1",
+    "@stylexjs/eslint-plugin": "^0.19.1",
     "@stylexjs/postcss-plugin": "^0.19.1",
     "@types/node": "^26.6.5",
     "@types/react": "^19",
