@@ -12,3 +12,8 @@
 ::view-transition {
   pointer-events: none;
 }
+
+/* The page stays put behind a lightbox. */
+:root:has(dialog:modal) {
+  overflow: hidden;
+}

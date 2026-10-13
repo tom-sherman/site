@@ -12,6 +12,7 @@ import {
   glyphOf,
   labelOf,
 } from "@/lib/feed";
+import { PostImages } from "./PostImages";
 
 const styles = stylex.create({
   row: {
@@ -67,7 +68,10 @@ const styles = stylex.create({
   },
 });
 
-/** Short posts, reposts and film ratings: a plain row, no card, no media. */
+/**
+ * Short posts, reposts and film ratings: a plain row, no card. Posts' images
+ * sit under their text as thumbnails.
+ */
 export function MediumRow({
   item,
 }: {
@@ -95,6 +99,9 @@ export function MediumRow({
             item.title
           )}
         </div>
+        {item.kind !== "film-rating" && item.images.length > 0 && (
+          <PostImages images={item.images} />
+        )}
       </div>
       {item.kind !== "film-rating" ? (
         <span {...stylex.props(styles.aside)}>♡ {formatCount(item.likes)}</span>

@@ -1,7 +1,7 @@
 import "server-only";
 import { cacheLife } from "next/cache";
 import { getActivityFeedItems } from "./activity";
-import type { Facet, ImageRef, Person, Timestamp } from "./types";
+import type { Facet, ImageRef, Person, PostImage, Timestamp } from "./types";
 
 interface FeedItemBase {
   id: string;
@@ -51,6 +51,7 @@ export interface PostItem extends FeedItemBase {
   author: Person;
   text: string;
   facets?: Facet[];
+  images: PostImage[];
   likes: number;
 }
 
@@ -86,6 +87,7 @@ export interface RepostItem extends FeedItemBase {
   author: Person;
   text: string;
   facets?: Facet[];
+  images: PostImage[];
   likes: number;
 }
 

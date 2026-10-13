@@ -10,6 +10,14 @@ export interface ImageRef {
   hue?: number;
 }
 
+/** An image attached to a post: a thumbnail for the feed, and the full image. */
+export interface PostImage {
+  /** Empty when the author didn't write any. */
+  alt: string;
+  thumb: string;
+  fullsize: string;
+}
+
 export interface Person {
   name: string;
   handle: string;

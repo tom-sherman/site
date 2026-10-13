@@ -1,7 +1,7 @@
 import "server-only";
-import { Client, type l } from "@atproto/lex";
+import { Client, getBlobCidString, type l } from "@atproto/lex";
 import { app } from "@repo/atproto-client";
-import type { ImageRef } from "./types";
+import type { ImageRef, PostImage } from "./types";
 import { truncate } from "./util";
 
 export type PostView = app.bsky.feed.defs.PostView;
@@ -71,12 +71,40 @@ export function imageOf(view: PostView): ImageRef | undefined {
 }
 
 /**
+ * A post's images, from an images or gallery embed or a quote post with
+ * either, on Bluesky's CDN. `did` is the post's author, whose repo has them.
+ */
+export function postImagesOf(
+  post: app.bsky.feed.post.Main,
+  did: string,
+): PostImage[] {
+  const { images, gallery, recordWithMedia } = app.bsky.embed;
+  const embed = post.embed;
+  if (!embed) return [];
+  const media = recordWithMedia.$isTypeOf(embed) ? embed.media : embed;
+  const found = images.$isTypeOf(media)
+    ? media.images
+    : gallery.$isTypeOf(media)
+      ? media.items.filter((item) => gallery.image.isTypeOf(item))
+      : [];
+  return found.map(({ alt, image }) => {
+    const cid = getBlobCidString(image);
+    return {
+      alt,
+      thumb: cdnImageUrl("feed_thumbnail", did, cid),
+      fullsize: cdnImageUrl("feed_fullsize", did, cid),
+    };
+  });
+}
+
+/**
  * An image blob, resized by Bluesky's CDN. The blob itself can be megabytes,
  * served uncached by whichever PDS hosts the repo. `avatar_thumbnail` is a
- * small square crop; `feed_thumbnail` keeps the aspect ratio.
+ * small square crop; `feed_thumbnail` and `feed_fullsize` keep the aspect
+ * ratio.
  */
 export function cdnImageUrl(
-  preset: "avatar_thumbnail" | "feed_thumbnail",
+  preset: "avatar_thumbnail" | "feed_thumbnail" | "feed_fullsize",
   did: string,
   cid: string,
 ) {

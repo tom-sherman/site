@@ -8,6 +8,7 @@ import {
   getPostViews,
   getProfileViews,
   imageOf,
+  postImagesOf,
   type PostView,
   type ProfileView,
   threadTitle,
@@ -183,6 +184,7 @@ function postItem(post: Post, hydration: Hydration): PostItem | ReplyItem {
     author: view ? personOf(view.author) : TOM,
     text: post.data.text,
     facets: post.data.facets,
+    images: postImagesOf(post.data, DID),
     likes: view?.likeCount ?? 0,
   };
 }
@@ -288,6 +290,7 @@ function repostItem(
     author: personOf(view.author),
     text: view.record.text,
     facets: view.record.facets,
+    images: postImagesOf(view.record, view.author.did),
     likes: view.likeCount ?? 0,
   };
 }
