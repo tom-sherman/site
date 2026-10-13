@@ -41,9 +41,6 @@ type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
 type Rating = Of<"letterboxd.rating">;
 type Review = Of<"letterboxd.review">;
 
-/** How much of my own post a self-reply quotes. */
-const QUOTE_LENGTH = 40;
-
 /** How much of a review its card shows. */
 const REVIEW_EXCERPT_LENGTH = 280;
 
@@ -209,7 +206,8 @@ function replyTo(
     if (text?.trim()) {
       return {
         kind: "self",
-        quote: truncate(text, QUOTE_LENGTH),
+        // Its first line; the label clips it to fit.
+        quote: text.trim().split("\n")[0],
         url: bskyUrl(uri),
       };
     }

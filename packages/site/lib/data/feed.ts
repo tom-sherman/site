@@ -61,9 +61,9 @@ export interface ReplyItem extends FeedItemBase {
   text: string;
   facets?: Facet[];
   /**
-   * Who it replies to, or for a reply to one of my own posts, how that post
-   * starts; and where the post it replies to is. Missing when it couldn't be
-   * hydrated.
+   * Who it replies to, or for a reply to one of my own posts, that post's
+   * first line; and where the post it replies to is. Missing when it couldn't
+   * be hydrated.
    */
   replyTo?: { url: string } & (
     { kind: "person"; person: Person } | { kind: "self"; quote: string }

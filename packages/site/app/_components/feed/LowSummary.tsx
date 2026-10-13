@@ -13,8 +13,11 @@ import { DisclosurePanel, Disclosures, DisclosureToggle } from "./Disclosure";
 import { ShownFor } from "./FeedFilter";
 
 const styles = stylex.create({
+  // One column no wider than the row, so a long line clips rather than
+  // widening it.
   root: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     rowGap: 6,
     paddingTop: 8,
     paddingBottom: 30,
@@ -47,6 +50,7 @@ const styles = stylex.create({
   },
   list: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: 3,
     marginTop: 10,
     paddingLeft: 12,
