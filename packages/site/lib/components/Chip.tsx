@@ -41,18 +41,22 @@ export function Chip({
   glyph,
   count,
   onClick,
+  popoverTarget,
   children,
 }: {
   active?: boolean;
   glyph?: GlyphName;
   count?: number;
   onClick?: () => void;
+  /** Makes the chip open this popover instead of toggling. */
+  popoverTarget?: string;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
-      aria-pressed={active}
+      aria-pressed={popoverTarget ? undefined : active}
+      popoverTarget={popoverTarget}
       onClick={onClick}
       {...stylex.props(styles.chip, active && styles.active)}
     >
