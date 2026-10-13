@@ -93,6 +93,7 @@ export interface RepostItem extends FeedItemBase {
 export interface FollowItem extends FeedItemBase {
   kind: "follow";
   network: "bluesky";
+  did: string;
   /** Who; missing when they couldn't be hydrated. */
   person?: Person;
 }

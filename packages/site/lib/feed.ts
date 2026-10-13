@@ -136,9 +136,7 @@ export function labelOf(item: FeedItem): string {
         ? `Liked a post by ${item.author.handle}`
         : "Liked a post";
     case "follow":
-      return item.person
-        ? `Followed ${item.person.handle}`
-        : "Followed someone";
+      return `Followed ${item.person?.handle ?? item.did}`;
     case "repost":
       return `Reposted a post by ${item.author.handle}`;
     case "film-rating":

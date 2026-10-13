@@ -296,7 +296,7 @@ function repostItem(
 
 /**
  * A follow of an account. Without the AppView, or once the account's gone,
- * it's just "Followed someone".
+ * it's shown by DID.
  */
 function followItem(
   follow: Follow,
@@ -310,6 +310,7 @@ function followItem(
     url: bskyProfileUrl(did),
     publishedAt: follow.timestamp,
     network: "bluesky",
+    did,
     person: profile && personOf(profile),
   };
 }
