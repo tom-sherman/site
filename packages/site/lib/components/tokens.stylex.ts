@@ -43,11 +43,12 @@ export const shadows = stylex.defineVars({
 
 export const layout = stylex.defineVars({
   contentWidth: "1240px",
-  pagePadding: "clamp(16px, 4vw, 24px)",
+  pagePadding: "clamp(10px, 2.5vw, 20px)",
   nowBarHeight: "40px",
+  // Wide enough for a T-minus stamp with two-digit days (`T−12d03h`).
   timelineTime: {
     default: "68px",
-    "@media (max-width: 639.98px)": "52px",
+    "@media (max-width: 639.98px)": "64px",
   },
   timelineRail: {
     default: "28px",

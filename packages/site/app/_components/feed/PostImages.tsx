@@ -52,7 +52,9 @@ const styles = stylex.create({
     },
     width: "100%",
     maxWidth: "none",
-    height: "100%",
+    // The dynamic viewport, not 100%: on mobile that's sized for whichever
+    // state the browser's toolbar was in, so the bar can end up beneath it.
+    height: "100dvh",
     maxHeight: "none",
     flexDirection: "column",
     padding: 0,
@@ -88,7 +90,8 @@ const styles = stylex.create({
     justifyContent: "space-between",
     rowGap: 10,
     columnGap: 24,
-    paddingBlock: 12,
+    paddingTop: 12,
+    paddingBottom: "max(12px, env(safe-area-inset-bottom))",
     paddingInline: 16,
     backgroundColor: colors.surface,
     color: colors.ink,
