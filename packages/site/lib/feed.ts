@@ -32,6 +32,7 @@ export function categoryOf(item: FeedItem): FeedCategory {
     case "post":
     case "reply":
     case "like":
+    case "repost":
       return "posts";
     case "film-review":
     case "film-rating":
@@ -53,6 +54,7 @@ export function priorityOf(item: FeedItem): Priority {
     case "film-review":
       return "high";
     case "post":
+    case "repost":
     case "film-rating":
       return "medium";
     case "reply":
@@ -72,7 +74,7 @@ export type HighPriorityItem = Extract<
 
 export type MediumPriorityItem = Extract<
   FeedItem,
-  { kind: "post" | "film-rating" }
+  { kind: "post" | "repost" | "film-rating" }
 >;
 
 export function isHighPriority(item: FeedItem): item is HighPriorityItem {
@@ -131,6 +133,8 @@ export function labelOf(item: FeedItem): string {
       return item.author
         ? `Liked a post by ${item.author.handle}`
         : "Liked a post";
+    case "repost":
+      return `Reposted a post by ${item.author.handle}`;
     case "film-rating":
       return "Rated on Letterboxd";
     case "track":

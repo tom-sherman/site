@@ -17,6 +17,7 @@ import type {
   LikeItem,
   PostItem,
   ReplyItem,
+  RepostItem,
   ThreadItem,
   TrackItem,
 } from "./feed";
@@ -29,6 +30,7 @@ type Of<T extends ActivityItem["type"]> = Extract<ActivityItem, { type: T }>;
 type Post = Of<"app.bsky.feed.post">;
 type Thread = Of<"is.sherman.unspecced.thread">;
 type Like = Of<"app.bsky.feed.like">;
+type Repost = Of<"app.bsky.feed.repost">;
 type Play = Of<"fm.teal.feed.play">;
 type GitHubEvent = Extract<ActivityItem, { type: `github.${string}` }>;
 type Rating = Of<"letterboxd.rating">;
@@ -102,6 +104,8 @@ function toFeedItem(
       return threadItem(item, hydration.views);
     case "app.bsky.feed.like":
       return likeItem(item, hydration.views);
+    case "app.bsky.feed.repost":
+      return repostItem(item, hydration.views);
     case "fm.teal.feed.play":
       return trackItem(item);
     case "letterboxd.rating":
@@ -115,7 +119,7 @@ function toFeedItem(
 
 /**
  * Posts and thread posts, the posts replies reply to (for who they're
- * replying to), and the posts I liked.
+ * replying to), and the posts I liked or reposted.
  */
 function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   const uris = new Set<string>();
@@ -125,7 +129,8 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
     } else if (item.type === "is.sherman.unspecced.thread") {
       for (const post of item.members) uris.add(post.id);
     } else if (
-      item.type === "app.bsky.feed.like" &&
+      (item.type === "app.bsky.feed.like" ||
+        item.type === "app.bsky.feed.repost") &&
       isPostUri(item.data.subject.uri)
     ) {
       uris.add(item.data.subject.uri);
@@ -238,6 +243,30 @@ function likeItem(
     publishedAt: like.timestamp,
     network: "bluesky",
     author: view && personOf(view.author),
+  };
+}
+
+/**
+ * A repost, shown as the post it reposts. Its text is only in the AppView,
+ * so without it, or once the post's gone, the repost is left out.
+ */
+function repostItem(
+  repost: Repost,
+  views: ReadonlyMap<string, PostView>,
+): RepostItem | undefined {
+  const { uri } = repost.data.subject;
+  const view = views.get(uri);
+  if (!view || !app.bsky.feed.post.$matches(view.record)) return undefined;
+  return {
+    kind: "repost",
+    id: repost.id,
+    url: bskyUrl(uri),
+    publishedAt: repost.timestamp,
+    network: "bluesky",
+    author: personOf(view.author),
+    text: view.record.text,
+    facets: view.record.facets,
+    likes: view.likeCount ?? 0,
   };
 }
 
