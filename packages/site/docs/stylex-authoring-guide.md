@@ -7,23 +7,24 @@ This document provides guidance on authoring styles with StyleX.
 Styles must be created using `stylex.create()`. Define styles as an object with namespaces containing CSS properties.
 
 ```tsx
-import * as stylex from '@stylexjs/stylex';
+import * as stylex from "@stylexjs/stylex";
 
 const styles = stylex.create({
   container: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     padding: 16,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: 'navy',
+    fontWeight: "bold",
+    color: "navy",
   },
 });
 ```
 
 **IMPORTANT**
+
 - Use longhand properties and single-value shorthands over multi-value shorthands.
 - Use `null` to unset properties.
 - Length properties are in pixels by default.
@@ -66,7 +67,7 @@ Use JavaScript expressions for conditional styling:
     styles.base,
     isActive && styles.active,
     isDisabled && styles.disabled,
-    variant === 'primary' ? styles.primary : styles.secondary,
+    variant === "primary" ? styles.primary : styles.secondary,
   )}
 />
 ```
@@ -76,7 +77,7 @@ Use JavaScript expressions for conditional styling:
 Accept styles from parent components:
 
 ```tsx
-import type { StyleXStyles } from '@stylexjs/stylex';
+import type { StyleXStyles } from "@stylexjs/stylex";
 
 type Props = {
   children: React.ReactNode;
@@ -106,7 +107,7 @@ const styles = stylex.create({
   reset: { margin: null, padding: null }, // Removes margin and padding
 });
 
-<div {...stylex.props(styles.base, styles.reset)} />
+<div {...stylex.props(styles.base, styles.reset)} />;
 ```
 
 ---
@@ -119,21 +120,22 @@ Nest pseudo-classes within property values using an object with `default` and ps
 const styles = stylex.create({
   button: {
     backgroundColor: {
-      default: 'lightblue',
-      ':hover': 'blue',
-      ':active': 'darkblue',
-      ':focus-visible': 'royalblue',
-      ':disabled': 'gray',
+      default: "lightblue",
+      ":hover": "blue",
+      ":active": "darkblue",
+      ":focus-visible": "royalblue",
+      ":disabled": "gray",
     },
     cursor: {
-      default: 'pointer',
-      ':disabled': 'not-allowed',
+      default: "pointer",
+      ":disabled": "not-allowed",
     },
   },
 });
 ```
 
 Recommended pseudo-classes include:
+
 - `:hover`, `:active`, `:focus`, `:focus-visible`, `:focus-within`
 
 **IMPORTANT: Prefer JS changes over `:first-child` and `:nth-child` pseudo-elements. This reduces CSS bundle size.**
@@ -147,13 +149,13 @@ Define pseudo-elements as top-level keys within a style namespace:
 ```tsx
 const styles = stylex.create({
   input: {
-    color: 'black',
-    '::placeholder': {
-      color: 'gray',
-      fontStyle: 'italic',
+    color: "black",
+    "::placeholder": {
+      color: "gray",
+      fontStyle: "italic",
     },
-    '::selection': {
-      backgroundColor: 'yellow',
+    "::selection": {
+      backgroundColor: "yellow",
     },
   },
 });
@@ -171,13 +173,13 @@ Nest media queries within property values:
 const styles = stylex.create({
   container: {
     flexDirection: {
-      default: 'column',
-      '@media (min-width: 768px)': 'row',
+      default: "column",
+      "@media (min-width: 768px)": "row",
     },
     padding: {
       default: 8,
-      '@media (min-width: 768px)': 16,
-      '@media (min-width: 1024px)': 24,
+      "@media (min-width: 768px)": 16,
+      "@media (min-width: 1024px)": 24,
     },
   },
 });
@@ -219,18 +221,18 @@ Use `stylex.defineConsts()` for shareable media queries and static values like a
 
 ```tsx
 // constants.stylex.ts
-import * as stylex from '@stylexjs/stylex';
+import * as stylex from "@stylexjs/stylex";
 
 export const breakpoints = stylex.defineConsts({
-  small: '@media (max-width: 600px)',
-  medium: '@media (min-width: 601px) and (max-width: 1024px)',
-  large: '@media (min-width: 1025px)',
+  small: "@media (max-width: 600px)",
+  medium: "@media (min-width: 601px) and (max-width: 1024px)",
+  large: "@media (min-width: 1025px)",
 });
 
 export const zIndices = stylex.defineConsts({
-  modal: '1000',
-  tooltip: '1100',
-  toast: '1200',
+  modal: "1000",
+  tooltip: "1100",
+  toast: "1200",
 });
 ```
 
@@ -242,19 +244,19 @@ Use `stylex.defineVars()` when values need theming or runtime overrides. Must be
 
 ```tsx
 // tokens.stylex.ts
-import * as stylex from '@stylexjs/stylex';
+import * as stylex from "@stylexjs/stylex";
 
 export const colors = stylex.defineVars({
-  primary: 'blue',
-  secondary: 'gray',
-  text: 'black',
-  background: 'white',
+  primary: "blue",
+  secondary: "gray",
+  text: "black",
+  background: "white",
 });
 
 export const spacing = stylex.defineVars({
-  small: '8px',
-  medium: '16px',
-  large: '24px',
+  small: "8px",
+  medium: "16px",
+  large: "24px",
 });
 ```
 
@@ -265,8 +267,8 @@ export const spacing = stylex.defineVars({
 Import and use variables and constants in your styles:
 
 ```tsx
-import * as stylex from '@stylexjs/stylex';
-import { colors, spacing } from './tokens.stylex';
+import * as stylex from "@stylexjs/stylex";
+import { colors, spacing } from "./tokens.stylex";
 
 const styles = stylex.create({
   container: {
@@ -278,6 +280,7 @@ const styles = stylex.create({
 ```
 
 **IMPORTANT: For `defineConsts` and `defineVars`:**
+
 - Must be in `.stylex.ts` or `.stylex.js` files
 - Must be named exports (not default exports)
 - No other exports allowed in the file
@@ -289,13 +292,13 @@ const styles = stylex.create({
 Override variable values for DOM sub-trees using `stylex.createTheme()`:
 
 ```tsx
-import * as stylex from '@stylexjs/stylex';
-import { colors } from './tokens.stylex';
+import * as stylex from "@stylexjs/stylex";
+import { colors } from "./tokens.stylex";
 
 export const darkTheme = stylex.createTheme(colors, {
-  primary: 'lightblue',
-  text: 'white',
-  background: '#1a1a1a',
+  primary: "lightblue",
+  text: "white",
+  background: "#1a1a1a",
 });
 
 // Apply theme to a container
@@ -322,15 +325,15 @@ Mark the observed element with `stylex.defaultMarker()` or create custom markers
 const styles = stylex.create({
   card: {
     transform: {
-      default: 'translateX(0)',
-      [stylex.when.ancestor(':hover')]: 'translateX(10px)',
+      default: "translateX(0)",
+      [stylex.when.ancestor(":hover")]: "translateX(10px)",
     },
   },
 });
 
 <div {...stylex.props(stylex.defaultMarker())}>
   <div {...stylex.props(styles.card)}>Hover the parent to move me</div>
-</div>
+</div>;
 ```
 
 ---
@@ -342,8 +345,8 @@ Use `stylex.firstThatWorks()` for browser compatibility fallbacks:
 ```tsx
 const styles = stylex.create({
   header: {
-    position: stylex.firstThatWorks('sticky', '-webkit-sticky', 'fixed'),
-    display: stylex.firstThatWorks('grid', 'flex'),
+    position: stylex.firstThatWorks("sticky", "-webkit-sticky", "fixed"),
+    display: stylex.firstThatWorks("grid", "flex"),
   },
 });
 ```
@@ -361,15 +364,15 @@ const fadeIn = stylex.keyframes({
 });
 
 const slideIn = stylex.keyframes({
-  '0%': { transform: 'translateX(-100%)' },
-  '100%': { transform: 'translateX(0)' },
+  "0%": { transform: "translateX(-100%)" },
+  "100%": { transform: "translateX(0)" },
 });
 
 const styles = stylex.create({
   animated: {
     animationName: fadeIn,
-    animationDuration: '0.3s',
-    animationTimingFunction: 'ease-out',
+    animationDuration: "0.3s",
+    animationTimingFunction: "ease-out",
   },
 });
 ```
@@ -381,22 +384,22 @@ const styles = stylex.create({
 Use `stylex.viewTransitionClass()` to customize View Transition API animations:
 
 ```tsx
-import * as stylex from '@stylexjs/stylex';
-import { unstable_ViewTransition as ViewTransition } from 'react';
+import * as stylex from "@stylexjs/stylex";
+import { unstable_ViewTransition as ViewTransition } from "react";
 
 const fadeInUp = stylex.keyframes({
-  from: { opacity: 0, transform: 'translateY(-30px)' },
-  to: { opacity: 1, transform: 'translateY(0)' },
+  from: { opacity: 0, transform: "translateY(-30px)" },
+  to: { opacity: 1, transform: "translateY(0)" },
 });
 
 const transitionClass = stylex.viewTransitionClass({
-  group: { /* ::view-transition-group styles */ },
-  imagePair: { /* ::view-transition-image-pair styles */ },
-  old: { animationDuration: '2s' },
+  group: {/* ::view-transition-group styles */},
+  imagePair: {/* ::view-transition-image-pair styles */},
+  old: { animationDuration: "2s" },
   new: { animationName: fadeInUp },
 });
 
-<ViewTransition default={transitionClass}>{/* ... */}</ViewTransition>
+<ViewTransition default={transitionClass}>{/* ... */}</ViewTransition>;
 ```
 
 ---
@@ -407,11 +410,11 @@ Use `stylex.positionTry()` to define CSS anchor positioning fallbacks:
 
 ```tsx
 const fallback = stylex.positionTry({
-  positionAnchor: '--anchor',
-  top: '0',
-  left: '0',
-  width: '100px',
-  height: '100px',
+  positionAnchor: "--anchor",
+  top: "0",
+  left: "0",
+  width: "100px",
+  height: "100px",
 });
 
 const styles = stylex.create({
@@ -432,7 +435,7 @@ Use `StyleXStyles` and `StyleXStylesWithout` over `StaticStyles` and `StaticStyl
 Accept any StyleX styles:
 
 ```tsx
-import type { StyleXStyles } from '@stylexjs/stylex';
+import type { StyleXStyles } from "@stylexjs/stylex";
 
 type Props = {
   style?: StyleXStyles;
@@ -455,7 +458,7 @@ type Props = {
 Exclude specific properties:
 
 ```tsx
-import type { StyleXStylesWithout } from '@stylexjs/stylex';
+import type { StyleXStylesWithout } from "@stylexjs/stylex";
 
 type Props = {
   // Allow all styles except layout properties
@@ -473,8 +476,8 @@ type Props = {
 Types for variable groups:
 
 ```tsx
-import type { VarGroup } from '@stylexjs/stylex';
-import { colors } from './tokens.stylex';
+import type { VarGroup } from "@stylexjs/stylex";
+import { colors } from "./tokens.stylex";
 
 function ThemeProvider({ theme }: { theme: VarGroup<typeof colors> }) {
   return <div {...stylex.props(theme)}>{children}</div>;
@@ -491,13 +494,13 @@ function ThemeProvider({ theme }: { theme: VarGroup<typeof colors> }) {
 
 ```tsx
 // invalid: imported non-StyleX variable
-import { PADDING } from './constants';
+import { PADDING } from "./constants";
 const styles = stylex.create({
   container: { padding: PADDING },
 });
 
 // valid: use StyleX constants or variables
-import { spacing } from './tokens.stylex';
+import { spacing } from "./tokens.stylex";
 const styles = stylex.create({
   container: { padding: spacing.medium },
 });
@@ -523,7 +526,7 @@ Media queries and pseudo-classes must be nested inside property values, not at t
 // invalid: media query at top level
 const styles = stylex.create({
   container: {
-    '@media (min-width: 768px)': {
+    "@media (min-width: 768px)": {
       padding: 16,
     },
   },
@@ -532,8 +535,8 @@ const styles = stylex.create({
 // invalid: pseudo-class at top level
 const styles = stylex.create({
   button: {
-    ':hover': {
-      backgroundColor: 'blue',
+    ":hover": {
+      backgroundColor: "blue",
     },
   },
 });
@@ -543,13 +546,13 @@ const styles = stylex.create({
   container: {
     padding: {
       default: 8,
-      '@media (min-width: 768px)': 16,
+      "@media (min-width: 768px)": 16,
     },
   },
   button: {
     backgroundColor: {
-      default: 'lightblue',
-      ':hover': 'blue',
+      default: "lightblue",
+      ":hover": "blue",
     },
   },
 });

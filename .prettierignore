@@ -1,3 +1,6 @@
 # managed by `lex install`
 packages/atproto-client/lexicons.json
 packages/atproto-client/lexicons
+
+# Generated files
+pnpm-lock.yaml
