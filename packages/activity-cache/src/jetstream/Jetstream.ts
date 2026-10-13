@@ -2,11 +2,20 @@ import type { DidString, NsidString } from "@atproto/lex";
 import {
   Jetstream as Client,
   type Kind,
+  type LiveTransport,
   type TypedEvent,
   typedEventFromRaw,
   websocketTransport,
 } from "@bsky/jetstream";
-import { Context, Effect, Layer, Queue, Schema, Stream } from "effect";
+import {
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  Queue,
+  Schema,
+  Stream,
+} from "effect";
 
 export class JetstreamError extends Schema.TaggedError<JetstreamError>()(
   "JetstreamError",
@@ -79,12 +88,38 @@ const isHandshake400 = (error: unknown) =>
 const noSchemas = new Map();
 
 /**
+ * Redials every `maxAgeMs`, however healthy the connection looks. The SDK
+ * resumes each connection after the last event it delivered and drops
+ * replayed duplicates, so a redial loses and repeats nothing.
+ */
+const recycling = (
+  transport: LiveTransport,
+  maxAgeMs: number,
+): LiveTransport => ({
+  async *stream(getUrl, signal, opts) {
+    while (true) {
+      const connection = AbortSignal.any([
+        signal,
+        AbortSignal.timeout(maxAgeMs),
+      ]);
+      try {
+        return yield* transport.stream(getUrl, connection, opts);
+      } catch (error) {
+        // Only our own timeout redials; anything else is the caller's to see.
+        if (signal.aborted || !connection.aborted) throw error;
+      }
+    }
+  },
+});
+
+/**
  * Effect-native Jetstream (v2 wire) client, wrapping `@bsky/jetstream`.
  *
  * A subscription reconnects by itself through dropped connections, server
  * restarts and idle timeouts, resuming after the last event it delivered, so
- * the stream only fails when the SDK gives up. Closing the stream (or
- * interrupting whatever runs it) closes the socket.
+ * the stream only fails when the SDK gives up. Connections are also redialed
+ * every hour, since one can stay up while the server stops sending events.
+ * Closing the stream (or interrupting whatever runs it) closes the socket.
  */
 export class Jetstream extends Context.Service<
   Jetstream,
@@ -97,9 +132,12 @@ export class Jetstream extends Context.Service<
   static readonly layer = (options: {
     /** e.g. `https://jetstream.us-east.bsky.network`. Must speak v2. */
     readonly service: string;
+    /** How long a connection lives before it's redialed. Default an hour. */
+    readonly maxConnectionAge?: Duration.Input | undefined;
   }) =>
     Layer.sync(Jetstream, () => {
       const client = new Client(options.service);
+      const maxAgeMs = Duration.toMillis(options.maxConnectionAge ?? "1 hour");
 
       const subscribe = (subscription: SubscribeOptions) =>
         Stream.callback<JetstreamEvent, JetstreamError | CursorTooOld>(
@@ -140,9 +178,14 @@ export class Jetstream extends Context.Service<
                 // firehose never goes quiet. A filtered one does, and each
                 // redial makes the server scan everything since the cursor,
                 // which for a quiet account can outlast the timeout and never
-                // catch up. Node's transport pings every 10s, which already
-                // detects dead connections.
-                liveTransport: websocketTransport({ idleTimeoutMs: false }),
+                // catch up. Node's transport pings every 10s, which detects
+                // dead connections, but not a server that still answers pings
+                // and has quietly stopped sending events, so connections are
+                // also recycled on a timer.
+                liveTransport: recycling(
+                  websocketTransport({ idleTimeoutMs: false }),
+                  maxAgeMs,
+                ),
               });
 
               const flush = Effect.gen(function* () {

@@ -70,10 +70,11 @@ const server = (options: {
 const subscribe = (
   service: string,
   options: Parameters<Jetstream["Service"]["subscribe"]>[0],
+  layer?: Omit<Parameters<typeof Jetstream.layer>[0], "service">,
 ) =>
   Jetstream.use((jetstream) =>
     Effect.succeed(jetstream.subscribe(options)),
-  ).pipe(Effect.provide(Jetstream.layer({ service })), Stream.unwrap);
+  ).pipe(Effect.provide(Jetstream.layer({ service, ...layer })), Stream.unwrap);
 
 describe("Jetstream", () => {
   it.live(
@@ -150,6 +151,35 @@ describe("Jetstream", () => {
         assert.strictEqual(error._tag, "JetstreamError");
       }
     }).pipe(Effect.scoped),
+  );
+
+  it.live(
+    "redials a connection that stays up but stops sending, resuming after the last event",
+    () =>
+      Effect.gen(function* () {
+        // Each connection sends one event, then goes quiet but stays open.
+        let seq = 0;
+        const local = yield* server({
+          serve: (ws) =>
+            ws.send(commit(++seq, { $type: "app.bsky.feed.post", text: "a" })),
+        });
+        const events = yield* subscribe(
+          local.service,
+          { cursor: 0 },
+          { maxConnectionAge: "200 millis" },
+        ).pipe(Stream.take(3), Stream.runCollect);
+
+        assert.deepStrictEqual(
+          (events as Array<JetstreamEvent>).map((event) =>
+            event.kind === "info" ? undefined : event.seq,
+          ),
+          [1, 2, 3],
+        );
+        assert.deepStrictEqual(
+          local.urls.slice(0, 3).map((url) => url.searchParams.get("cursor")),
+          ["0", "1", "2"],
+        );
+      }).pipe(Effect.scoped),
   );
 
   it.live("closes the socket when the stream is done with", () =>
