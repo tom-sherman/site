@@ -78,6 +78,17 @@ export interface LikeItem extends FeedItemBase {
   author?: Person;
 }
 
+/** Someone's Bluesky post I reposted, shown like a post of mine. */
+export interface RepostItem extends FeedItemBase {
+  kind: "repost";
+  network: "bluesky";
+  /** Who wrote the reposted post. */
+  author: Person;
+  text: string;
+  facets?: Facet[];
+  likes: number;
+}
+
 export interface FilmRatingItem extends FeedItemBase {
   kind: "film-rating";
   title: string;
@@ -121,6 +132,7 @@ export type FeedItem =
   | PostItem
   | ReplyItem
   | LikeItem
+  | RepostItem
   | FilmRatingItem
   | TrackItem
   | GameSessionItem

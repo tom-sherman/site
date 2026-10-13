@@ -4,6 +4,7 @@
     "app.bsky.feed.getPosts",
     "app.bsky.feed.like",
     "app.bsky.feed.post",
+    "app.bsky.feed.repost",
     "com.atproto.sync.getLatestCommit",
     "com.atproto.sync.getRepo",
     "fm.teal.actor.status",
@@ -71,6 +72,10 @@
     "app.bsky.feed.postgate": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.postgate",
       "cid": "bafyreiai5efexyluyptv5tbl6kqbqlnneczqzexcqnxmitmulyjfaftgva"
+    },
+    "app.bsky.feed.repost": {
+      "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.repost",
+      "cid": "bafyreihks43jtwanviarzctwx2vvcyloivuxo2kdi7ex24gog5dfn4s5au"
     },
     "app.bsky.feed.threadgate": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.threadgate",

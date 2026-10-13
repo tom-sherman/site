@@ -4,7 +4,7 @@ import { Avatar } from "@/lib/components/Avatar";
 import { Glyph } from "@/lib/components/Glyph";
 import { RichText } from "@/lib/components/RichText";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
-import type { FilmRatingItem, PostItem } from "@/lib/data/feed";
+import type { FilmRatingItem, PostItem, RepostItem } from "@/lib/data/feed";
 import {
   filmRatingLabel,
   formatCount,
@@ -67,8 +67,12 @@ const styles = stylex.create({
   },
 });
 
-/** Short posts and film ratings: a plain row, no card, no media. */
-export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
+/** Short posts, reposts and film ratings: a plain row, no card, no media. */
+export function MediumRow({
+  item,
+}: {
+  item: PostItem | RepostItem | FilmRatingItem;
+}) {
   return (
     <div {...stylex.props(styles.row)}>
       {item.kind === "film-rating" ? (
@@ -83,7 +87,7 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
           </a>
         </div>
         <div {...stylex.props(styles.text)}>
-          {item.kind === "post" ? (
+          {item.kind !== "film-rating" ? (
             <RichText text={item.text} facets={item.facets} />
           ) : item.year !== undefined ? (
             `${item.title} (${item.year})`
@@ -92,7 +96,7 @@ export function MediumRow({ item }: { item: PostItem | FilmRatingItem }) {
           )}
         </div>
       </div>
-      {item.kind === "post" ? (
+      {item.kind !== "film-rating" ? (
         <span {...stylex.props(styles.aside)}>♡ {formatCount(item.likes)}</span>
       ) : (
         <span
