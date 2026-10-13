@@ -6,7 +6,7 @@ import type { Facet } from "@/lib/data/types";
 import { colors } from "./tokens.stylex";
 
 const styles = stylex.create({
-  mention: {
+  link: {
     color: {
       default: "inherit",
       ":hover": colors.ink,
@@ -21,9 +21,10 @@ const styles = stylex.create({
 });
 
 /**
- * A Bluesky post's text, with its mentions linked to the mentioned profiles.
- * Other facets (links, tags) are shown as plain text for now. `linked={false}`
- * marks mentions without linking them, for text that's already inside a link.
+ * A Bluesky post's text, with its mentions linked to the mentioned profiles
+ * and its links to where they point. Tags are shown as plain text for now.
+ * `linked={false}` marks them without linking them, for text that's already
+ * inside a link.
  */
 export function RichText({
   text,
@@ -39,26 +40,45 @@ export function RichText({
     (a, b) => a.index.byteStart - b.index.byteStart,
   );
   return segmentize(text, sorted).map(({ text, features }, i) => {
-    const mention = features?.find(isMention);
-    if (!mention) return text;
+    const href = features && hrefOf(features);
+    if (!href) return text;
     return linked ? (
-      <a
-        key={i}
-        href={`https://bsky.app/profile/${mention.did}`}
-        {...stylex.props(styles.mention)}
-      >
+      <a key={i} href={href} {...stylex.props(styles.link)}>
         {text}
       </a>
     ) : (
-      <span key={i} {...stylex.props(styles.mention)}>
+      <span key={i} {...stylex.props(styles.link)}>
         {text}
       </span>
     );
   });
 }
 
+/**
+ * Where a segment links: a mention to the profile, a link to its URI. A
+ * link's URI is whatever the post's author wrote, so only web URLs count.
+ */
+function hrefOf(features: Facet["features"]): string | undefined {
+  for (const feature of features) {
+    if (isMention(feature)) return `https://bsky.app/profile/${feature.did}`;
+    if (isLink(feature) && isWebUrl(feature.uri)) return feature.uri;
+  }
+  return undefined;
+}
+
+function isWebUrl(uri: string): boolean {
+  const url = URL.parse(uri);
+  return url?.protocol === "https:" || url?.protocol === "http:";
+}
+
 function isMention(
   feature: Facet["features"][number],
 ): feature is l.$Typed<app.bsky.richtext.facet.Mention> {
   return feature.$type === "app.bsky.richtext.facet#mention";
+}
+
+function isLink(
+  feature: Facet["features"][number],
+): feature is l.$Typed<app.bsky.richtext.facet.Link> {
+  return feature.$type === "app.bsky.richtext.facet#link";
 }
