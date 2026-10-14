@@ -51,6 +51,11 @@ export function formatShortDate(ts: Timestamp): string {
   return `${pad(day)}.${pad(month)}`;
 }
 
+/** `2026` */
+export function formatYear(ts: Timestamp): string {
+  return String(zonedParts(ts).year);
+}
+
 /** Whole days since the epoch for the calendar day `ts` falls on in {@link TIME_ZONE}. */
 export function dayNumber(ts: Timestamp): number {
   const { year, month, day } = zonedParts(ts);
