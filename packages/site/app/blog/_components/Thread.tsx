@@ -1,6 +1,13 @@
 import "server-only";
 import * as stylex from "@stylexjs/stylex";
-import { Glyph } from "@/lib/components/Glyph";
+import {
+  ArrowUpRight,
+  Heart,
+  type LucideIcon,
+  MessageCircle,
+  Quote,
+  Repeat2,
+} from "lucide-react";
 import { RichText } from "@/lib/components/RichText";
 import {
   breakpoints,
@@ -16,25 +23,43 @@ import { LinkCard } from "./LinkCard";
 import { BskyEmbed } from "./PostEmbed";
 import { Img } from "./Prose";
 
+/** The margin beside the text column, on screens wide enough for one. */
+const MARGIN = 140;
+const MARGIN_GAP = 40;
+
 const styles = stylex.create({
   thread: {
     listStyle: "none",
     // The posts' hover tint bleeds past the text column, so the text lines
-    // up with the title above. Never further than the page's gutter.
-    marginInline: {
+    // up with the title above. Never further than the page's gutter. On
+    // wide screens, the posts also reach into the margin to the right.
+    marginLeft: {
       default: -16,
       [breakpoints.phone]: -10,
     },
+    marginRight: {
+      default: -16,
+      [breakpoints.phone]: -10,
+      [breakpoints.wide]: -(16 + MARGIN_GAP + MARGIN),
+    },
   },
-  // Each post is set apart by a hairline and its own footer, and links to
-  // itself on Bluesky as a whole.
+  // Each post is set apart by a hairline, with its counts in the margin,
+  // and links to itself on Bluesky as a whole.
   post: {
     position: "relative",
-    display: "flex",
+    display: {
+      default: "flex",
+      [breakpoints.wide]: "grid",
+    },
     flexDirection: "column",
+    gridTemplateColumns: `minmax(0, 1fr) ${MARGIN}px`,
+    columnGap: MARGIN_GAP,
     rowGap: 14,
     paddingTop: 22,
-    paddingBottom: 18,
+    paddingBottom: {
+      default: 18,
+      [breakpoints.wide]: 22,
+    },
     paddingInline: {
       default: 16,
       [breakpoints.phone]: 10,
@@ -49,6 +74,11 @@ const styles = stylex.create({
   },
   first: {
     borderTopWidth: 0,
+  },
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    rowGap: 14,
   },
   text: {
     fontSize: 18,
@@ -67,19 +97,35 @@ const styles = stylex.create({
     fontSize: fontSizes.micro,
     color: colors.muted,
   },
-  footer: {
+  // In the margin on wide screens, lined up with the post's first line;
+  // otherwise a row under the post.
+  aside: {
     display: "flex",
     flexWrap: "wrap",
-    alignItems: "baseline",
-    columnGap: 8,
-    rowGap: 4,
+    alignItems: "center",
+    alignSelf: "start",
+    columnGap: 14,
+    rowGap: 6,
+    // Centred on the text's first line (18px at 1.65).
+    paddingTop: {
+      default: 0,
+      [breakpoints.wide]: 6,
+    },
     fontFamily: fonts.mono,
     fontSize: fontSizes.micro,
+    lineHeight: 1,
     color: colors.muted,
   },
   // Stretched over the whole post, so clicking anywhere in it that isn't
   // a link or button of its own (see `globals.css`) goes to Bluesky.
   link: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    flexBasis: {
+      default: "auto",
+      [breakpoints.wide]: "100%",
+    },
     color: {
       default: colors.muted,
       [stylex.when.ancestor(":hover")]: colors.ink,
@@ -91,12 +137,21 @@ const styles = stylex.create({
       inset: 0,
     },
   },
-  external: {
-    marginLeft: "auto",
-    color: {
-      default: colors.muted,
-      [stylex.when.ancestor(":hover")]: colors.ink,
-    },
+  count: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+  },
+  none: {
+    opacity: 0.5,
+  },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
   },
 });
 
@@ -135,30 +190,34 @@ function ThreadPostView({
 }) {
   return (
     <>
-      {post.text && (
-        <p {...stylex.props(styles.text)}>
-          <RichText text={post.text} facets={post.facets} />
-        </p>
-      )}
-      {post.images.length > 0 && <PostImages images={post.images} />}
-      {post.video && (
-        <div {...stylex.props(styles.video)}>
-          {post.video.thumbnail && (
-            <Img src={post.video.thumbnail} alt={post.video.alt} />
-          )}
-          <span {...stylex.props(styles.videoLabel)}>▶ Video, on Bluesky</span>
-        </div>
-      )}
-      {post.external && (
-        <LinkCard
-          href={post.external.uri}
-          title={post.external.title}
-          description={post.external.description}
-          image={post.external.thumb}
-        />
-      )}
-      {post.quote && <BskyEmbed uri={post.quote} />}
-      <div {...stylex.props(styles.footer)}>
+      <div {...stylex.props(styles.content)}>
+        {post.text && (
+          <p {...stylex.props(styles.text)}>
+            <RichText text={post.text} facets={post.facets} />
+          </p>
+        )}
+        {post.images.length > 0 && <PostImages images={post.images} />}
+        {post.video && (
+          <div {...stylex.props(styles.video)}>
+            {post.video.thumbnail && (
+              <Img src={post.video.thumbnail} alt={post.video.alt} />
+            )}
+            <span {...stylex.props(styles.videoLabel)}>
+              ▶ Video, on Bluesky
+            </span>
+          </div>
+        )}
+        {post.external && (
+          <LinkCard
+            href={post.external.uri}
+            title={post.external.title}
+            description={post.external.description}
+            image={post.external.thumb}
+          />
+        )}
+        {post.quote && <BskyEmbed uri={post.quote} />}
+      </div>
+      <div {...stylex.props(styles.aside)}>
         <a
           href={post.url}
           data-stretched
@@ -167,25 +226,43 @@ function ThreadPostView({
           {...stylex.props(styles.link)}
         >
           {position}/{of}
+          <ArrowUpRight {...ICON} />
         </a>
-        <span aria-hidden>·</span>
-        <span>{counts(post)}</span>
-        <span {...stylex.props(styles.external)}>
-          <Glyph name="external" />
-        </span>
+        <Count
+          icon={MessageCircle}
+          n={post.replies}
+          one="reply"
+          many="replies"
+        />
+        <Count icon={Repeat2} n={post.reposts} one="repost" many="reposts" />
+        <Count icon={Heart} n={post.likes} one="like" many="likes" />
+        {post.quotes > 0 && (
+          <Count icon={Quote} n={post.quotes} one="quote" many="quotes" />
+        )}
       </div>
     </>
   );
 }
 
-/** `2 replies · 0 reposts · 3 likes`, and quotes when there are any. */
-function counts({ replies, reposts, likes, quotes }: ThreadPost) {
-  const count = (n: number, one: string, many: string) =>
-    `${formatCount(n)} ${n === 1 ? one : many}`;
-  return [
-    count(replies, "reply", "replies"),
-    count(reposts, "repost", "reposts"),
-    count(likes, "like", "likes"),
-    ...(quotes > 0 ? [count(quotes, "quote", "quotes")] : []),
-  ].join(" · ");
+const ICON = { size: 13, strokeWidth: 1.75, "aria-hidden": true } as const;
+
+/** An icon and a count, read out as `2 replies`. Zero is dimmed. */
+function Count({
+  icon: Icon,
+  n,
+  one,
+  many,
+}: {
+  icon: LucideIcon;
+  n: number;
+  one: string;
+  many: string;
+}) {
+  return (
+    <span {...stylex.props(styles.count, n === 0 && styles.none)}>
+      <Icon {...ICON} />
+      {formatCount(n)}
+      <span {...stylex.props(styles.srOnly)}> {n === 1 ? one : many}</span>
+    </span>
+  );
 }
