@@ -44,11 +44,14 @@ const styles = stylex.create({
     color: colors.ink,
     whiteSpace: "pre-wrap",
   },
+  // Scaled to fit, never cropped: wide images fill the card, tall and
+  // square ones keep their shape at up to 420px high. Not stretched by the
+  // column it's in.
   image: {
     display: "block",
-    width: "100%",
+    alignSelf: "flex-start",
+    maxWidth: "100%",
     maxHeight: 420,
-    objectFit: "cover",
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: colors.rule,
