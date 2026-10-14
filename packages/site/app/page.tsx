@@ -1,7 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { Suspense } from "react";
 import { Container } from "@/lib/components/Container";
-import { breakpoints, layout } from "@/lib/components/tokens.stylex";
+import { TextLink } from "@/lib/components/Text";
+import {
+  breakpoints,
+  fonts,
+  fontSizes,
+  layout,
+} from "@/lib/components/tokens.stylex";
 import { getFeed } from "@/lib/data/feed";
 import { getPinned } from "@/lib/data/pinned";
 import { getProfile } from "@/lib/data/profile";
@@ -42,6 +48,14 @@ const styles = stylex.create({
     top: `calc(${layout.nowBarHeight} + 24px)`,
     paddingTop: 12,
   },
+  blogLink: {
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.label,
+  },
+  // Below the pins, when there are any.
+  blogLinkAfterPins: {
+    marginTop: 24,
+  },
   feed: {
     gridColumn: {
       default: null,
@@ -75,6 +89,14 @@ export default async function Home() {
       <Container as="main" style={styles.main}>
         <div {...stylex.props(styles.rail)}>
           <PinnedRail items={pinned} asOf={feed.asOf} />
+          <p
+            {...stylex.props(
+              styles.blogLink,
+              pinned.length > 0 && styles.blogLinkAfterPins,
+            )}
+          >
+            <TextLink href="/blog">All blog posts →</TextLink>
+          </p>
         </div>
         <div {...stylex.props(styles.feed)}>
           <Feed
