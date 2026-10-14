@@ -2,7 +2,6 @@ import "server-only";
 import { Client, getBlobCidString, type l } from "@atproto/lex";
 import { app } from "@repo/atproto-client";
 import type { ImageRef, PostImage } from "./types";
-import { truncate } from "./util";
 
 export type PostView = app.bsky.feed.defs.PostView;
 export type ProfileView = app.bsky.actor.defs.ProfileViewDetailed;
@@ -120,9 +119,4 @@ export function bskyUrl(uri: string) {
 /** An account on bsky.app, by DID. */
 export function bskyProfileUrl(did: string) {
   return `https://bsky.app/profile/${did}`;
-}
-
-/** A called-out thread's own title, or else how its first post starts. */
-export function threadTitle(title: string | undefined, rootText: string) {
-  return title ?? truncate(rootText, 80);
 }

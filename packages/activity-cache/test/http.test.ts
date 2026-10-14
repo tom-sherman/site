@@ -45,14 +45,18 @@ const post = (rkey: string, offset: number): FeedEntry => ({
 });
 
 const thread: FeedEntry = {
-  id: uri("is.sherman.unspecced.thread", "thread"),
+  id: uri("site.standard.document", "thread"),
   timestamp: T,
-  type: "is.sherman.unspecced.thread",
+  type: "site.standard.document",
   data: {
-    $type: "is.sherman.unspecced.thread",
-    subject: { uri: uri("app.bsky.feed.post", "root"), cid: CID },
+    $type: "site.standard.document",
+    site: "https://tom.sherman.is",
     title: "A thread",
-    createdAt: at(5000),
+    publishedAt: at(5000),
+    content: {
+      $type: "is.sherman.unspecced.documentref",
+      uri: uri("app.bsky.feed.post", "root"),
+    },
   },
   members: [post("root", 0), post("reply", 1000)],
 };

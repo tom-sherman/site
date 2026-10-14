@@ -226,7 +226,7 @@ describe("AtprotoRepo", () => {
     }),
   );
 
-  it.effect("groups self-threads and collects them with thread records", () =>
+  it.effect("groups self-threads and collects them with thread documents", () =>
     Effect.gen(function* () {
       const OTHER = "did:plc:someoneelsesomeoneelse0";
       const CID = "bafyreia7rgxu7467phwpcgzaw62l5bzmxufkpikrc5zm4q3xhjmuhq4pti";
@@ -266,13 +266,32 @@ describe("AtprotoRepo", () => {
           // Replying in someone else's thread.
           post("3mxafgjedwb2d", { root: theirs, parent: theirs }),
           {
-            collection: "is.sherman.unspecced.thread",
+            collection: "site.standard.document",
             rkey: "3mxafgjedwb2e",
             record: {
-              $type: "is.sherman.unspecced.thread",
-              subject: { uri: mine("3mxafgjedwb2a"), cid: CID },
+              $type: "site.standard.document",
+              site: "https://tom.sherman.is",
               title: "A thread",
-              createdAt: new Date(NOW).toISOString(),
+              publishedAt: new Date(NOW).toISOString(),
+              content: {
+                $type: "is.sherman.unspecced.documentref",
+                uri: mine("3mxafgjedwb2a"),
+              },
+            },
+          },
+          // A blog post: a document, but not activity.
+          {
+            collection: "site.standard.document",
+            rkey: "3mxafgjedwb2f",
+            record: {
+              $type: "site.standard.document",
+              site: "https://tom.sherman.is",
+              title: "A blog post",
+              publishedAt: new Date(NOW).toISOString(),
+              content: {
+                $type: "is.sherman.unspecced.documentref",
+                uri: `at://${DID}/com.whtwnd.blog.entry/3mxafgjedwb2g`,
+              },
             },
           },
         ]),
@@ -305,7 +324,7 @@ describe("AtprotoRepo", () => {
           group: undefined,
           collects: undefined,
         },
-        "is.sherman.unspecced.thread/3mxafgjedwb2e": {
+        "site.standard.document/3mxafgjedwb2e": {
           group: undefined,
           collects: mine("3mxafgjedwb2a"),
         },
@@ -398,7 +417,7 @@ describe("AtprotoRepo", () => {
       );
       assert.strictEqual(
         source.fingerprint,
-        `did=${DID};collections=app.bsky.feed.like@1,app.bsky.feed.post@2,app.bsky.feed.repost@1,app.bsky.graph.follow@1,fm.teal.feed.play@1,is.sherman.unspecced.thread@1`,
+        `did=${DID};collections=app.bsky.feed.like@1,app.bsky.feed.post@2,app.bsky.feed.repost@1,app.bsky.graph.follow@1,fm.teal.feed.play@1,site.standard.document@1`,
       );
     }),
   );

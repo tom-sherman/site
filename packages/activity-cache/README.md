@@ -28,7 +28,7 @@ Configuration comes from environment variables, then `.env` (gitignored, for loc
 
 Each item is one member of the `ActivityItem` union in `src/ActivityItem.ts`, keyed by `type`, so `data` is typed per type:
 
-- **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `app.bsky.feed.repost`, `app.bsky.graph.follow`, `fm.teal.feed.play`, `is.sherman.unspecced.thread`): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
+- **atproto records** (`app.bsky.feed.post`, `app.bsky.feed.like`, `app.bsky.feed.repost`, `app.bsky.graph.follow`, `fm.teal.feed.play`, and `site.standard.document`s that publish a thread): `data` is the record, through `lexRecord` from `@repo/atproto-client/effect`. On the wire it's lexicon JSON (`$link`s, blobs as `{ $type: "blob" }`). Decoded, it's lex's own values (`Cid`s, `BlobRef`s), validated against the lexicon. A thread has its posts in `members`, which is never empty.
 - **GitHub events** (`github.PushEvent`, …): `data` is `{ actor, repo, payload }`, with only the payload fields the schema lists.
 - **Letterboxd diary entries** (`letterboxd.rating`, `letterboxd.review`): `data` is the entry's `url`, its `film` (title, year, poster, TMDB id), `watchedDate`, `rewatch`, `liked` and `rating`, plus for a review its text (`review`) and whether it's marked as having `spoilers`.
 
@@ -121,7 +121,7 @@ It's also more to download. Measured in October 2026: the export was 5.8MB in on
 Some activity is better shown as one item, like a Bluesky thread I want to call out as writing. A source can say so per record, so snapshots and realtime writes need nothing extra:
 
 - `group`: the group an activity belongs to, keyed by the id of the group's first activity. Each post's group is its thread's root post, and a top-level post is the root of its own thread. Like Bluesky's author threads, a reply only counts when its root and parent are both mine, so replies to other people stay separate.
-- `collects`: rolls a group up. An `is.sherman.unspecced.thread` record collects the thread its `subject` starts.
+- `collects`: rolls a group up. A `site.standard.document` whose content is an `is.sherman.unspecced.documentref` to one of my posts collects the thread that post starts. Other documents (blog posts) aren't activity.
 
 Roll-ups happen when reading, so a record can arrive before or after the posts it collects. The roll-up takes the place and timestamp of the group's first activity, and the group's activities are in its `members`, oldest first, not in the feed. Until that first activity is cached (or once it's deleted or pruned), the roll-up is hidden and the group shows as usual. Roll-ups only collect within their own source. If two records collect the same group, the lowest id wins.
 

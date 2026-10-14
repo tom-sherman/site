@@ -4,7 +4,7 @@ Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.
 
 Installed lexicons: `app.bsky.actor.getProfiles`, `app.bsky.feed.getPosts`, `app.bsky.feed.like`, `app.bsky.feed.post`, `app.bsky.feed.repost`, `app.bsky.graph.follow`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.actor.status`, `fm.teal.feed.play`, `pub.leaflet.content`, `site.standard.document`, `site.standard.publication`
 
-Authored here: `is.sherman.unspecced.thread`, `is.sherman.unspecced.home.pinned`, `is.sherman.unspecced.documentref` (see [Our own lexicons](#our-own-lexicons))
+Authored here: `is.sherman.unspecced.home.pinned`, `is.sherman.unspecced.documentref` (see [Our own lexicons](#our-own-lexicons))
 
 Vendored: `games.atmosphere.status` (see [Vendored lexicons](#vendored-lexicons))
 
@@ -100,9 +100,8 @@ Lexicons under `is.sherman.unspecced` are written by hand in `lexicons/is/sherma
 
 They're unspecced: records only this site reads, so the lexicons aren't published and can change freely.
 
-- `is.sherman.unspecced.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
-- `is.sherman.unspecced.home.pinned`: what the homepage pins, in order. One record, rkey `self`. `items` are the at-uris (`uri`, not strong refs, so pins follow edits) of what's pinned, an `is.sherman.unspecced.thread` or a `site.standard.document` (the site leaves out anything else), each with an optional `hero` flag: heroes are shown as cards, the rest under "More highlights". `updatedAt` is when the list last changed.
-- `is.sherman.unspecced.documentref`: a `site.standard.document`'s `content` when it lives in another record. `uri` is that record's at-uri, not a strong ref, so the document follows its edits. My blog posts migrated from WhiteWind use it to point at their `com.whtwnd.blog.entry`, which keeps the Markdown.
+- `is.sherman.unspecced.home.pinned`: what the homepage pins, in order. One record, rkey `self`. `items` are the at-uris (`uri`, not strong refs, so pins follow edits) of what's pinned, a `site.standard.document` (a blog post or a thread; the site leaves out anything else), each with an optional `hero` flag: heroes are shown as cards, the rest under "More highlights". `updatedAt` is when the list last changed.
+- `is.sherman.unspecced.documentref`: a `site.standard.document`'s `content` when it lives in another record. `uri` is that record's at-uri, not a strong ref, so the document follows its edits. My blog posts migrated from WhiteWind use it to point at their `com.whtwnd.blog.entry`, which keeps the Markdown. A Bluesky thread published as writing points at its first post (an `app.bsky.feed.post` in the same repo); the activity feed then shows the thread as one item.
 
 ### Vendored lexicons
 

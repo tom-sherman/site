@@ -10,7 +10,6 @@ import {
   getPostViews,
   imageOf,
   type PostView,
-  threadTitle,
 } from "./bluesky";
 import { DID } from "./profile";
 import type { ImageRef, Timestamp } from "./types";
@@ -29,18 +28,16 @@ export interface PinnedItem {
 }
 
 type Pin = is.sherman.unspecced.home.pinned.Item;
-type Ref = NonNullable<ReturnType<typeof parseAtUri>>;
 
 /** A pinned thread's first post, until its image is hydrated. */
 type Found = PinnedItem & { root?: string };
 
 /**
  * What's pinned to the homepage, in order, from my
- * `is.sherman.unspecced.home.pinned/self` record: threads
- * (`is.sherman.unspecced.thread`) and blog posts (`site.standard.document`).
- * Pins can be of any age, so they're read from their own records rather than
- * the activity cache, which only keeps 30 days. A pin that's gone, or of
- * anything else, is left out.
+ * `is.sherman.unspecced.home.pinned/self` record: `site.standard.document`s,
+ * which are blog posts or threads. Pins can be of any age, so they're read
+ * from their own records rather than the activity cache, which only keeps 30
+ * days. A pin that's gone, or of anything else, is left out.
  */
 export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
@@ -82,67 +79,71 @@ async function getPinnedItem({
   hero = false,
 }: Pin): Promise<Found | null> {
   const ref = parseAtUri(uri);
-  switch (ref?.collection) {
-    case is.sherman.unspecced.thread.$nsid:
-      return getThread(ref, hero);
-    case site.standard.document.$nsid:
-      return getDocument(ref, hero);
-    default:
-      console.warn(`Can't show pinned ${uri}`);
-      return null;
+  if (ref?.collection !== site.standard.document.$nsid) {
+    console.warn(`Can't show pinned ${uri}`);
+    return null;
   }
+  const client = await pdsClient(ref.repo);
+  const doc = await orNotFound(
+    client.get(site.standard.document, { repo: ref.repo, rkey: ref.rkey }),
+  );
+  if (!doc) return null;
+  const root = threadRootOf(ref.repo, doc.value);
+  return root
+    ? getThread(doc.uri, doc.value, root, hero)
+    : getBlogPost(doc.uri, ref.repo, doc.value, hero);
 }
 
-/** A thread and its first post, which is in the same repo. */
-async function getThread(
-  { repo, rkey }: Ref,
+/**
+ * The thread a document publishes as writing: the first post its content
+ * points at, when that's a post in the document's own repo.
+ */
+function threadRootOf(repo: string, doc: site.standard.document.Main) {
+  const ref = is.sherman.unspecced.documentref.$safeParse(doc.content);
+  if (!ref.success) return undefined;
+  const root = parseAtUri(ref.value.uri);
+  return root?.collection === app.bsky.feed.post.$nsid && root.repo === repo
+    ? ref.value.uri
+    : undefined;
+}
+
+/** A thread, linking to its first post on Bluesky. */
+function getThread(
+  uri: string,
+  doc: site.standard.document.Main,
+  root: string,
   hero: boolean,
-): Promise<Found | null> {
-  const client = await pdsClient(repo);
-  const thread = await orNotFound(
-    client.get(is.sherman.unspecced.thread, { repo, rkey }),
-  );
-  const rootRkey = thread && parseAtUri(thread.value.subject.uri)?.rkey;
-  if (!rootRkey) return null;
-  const root = await orNotFound(
-    client.get(app.bsky.feed.post, { repo, rkey: rootRkey }),
-  );
-  if (!root) return null;
+): Found {
   return {
-    id: thread.uri,
+    id: uri,
     kind: "thread",
-    url: bskyUrl(root.uri),
-    // As in the feed, when it was called out as a thread.
-    publishedAt: Date.parse(thread.value.createdAt),
-    title: threadTitle(thread.value.title, root.value.text),
+    url: bskyUrl(root),
+    publishedAt: Date.parse(doc.publishedAt),
+    title: doc.title,
     hero,
-    root: root.uri,
+    root,
   };
 }
 
-async function getDocument(
-  { repo, rkey }: Ref,
+async function getBlogPost(
+  uri: string,
+  repo: string,
+  doc: site.standard.document.Main,
   hero: boolean,
 ): Promise<Found | null> {
-  const client = await pdsClient(repo);
-  const doc = await orNotFound(
-    client.get(site.standard.document, { repo, rkey }),
-  );
-  if (!doc) return null;
   // Blog posts have a page here, even ones whose canonical home is Leaflet.
-  const url =
-    toBlogPost(doc.uri, doc.value)?.path ?? (await documentUrl(doc.value));
+  const url = toBlogPost(uri, doc)?.path ?? (await documentUrl(doc));
   if (!url) {
-    console.warn(`Can't show pinned ${doc.uri}: it has no URL`);
+    console.warn(`Can't show pinned ${uri}: it has no URL`);
     return null;
   }
-  const cover = doc.value.coverImage;
+  const cover = doc.coverImage;
   return {
-    id: doc.uri,
+    id: uri,
     kind: "blog-post",
     url,
-    publishedAt: Date.parse(doc.value.publishedAt),
-    title: doc.value.title,
+    publishedAt: Date.parse(doc.publishedAt),
+    title: doc.title,
     // Decorative; the title is right next to it.
     image: cover && {
       alt: "",

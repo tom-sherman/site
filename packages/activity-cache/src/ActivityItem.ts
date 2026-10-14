@@ -1,5 +1,5 @@
 import { getMain, type Main, type RecordSchema } from "@atproto/lex";
-import { app, fm, is } from "@repo/atproto-client";
+import { app, fm, site } from "@repo/atproto-client";
 import { lexRecord } from "@repo/atproto-client/effect";
 import { Schema } from "effect";
 
@@ -34,9 +34,13 @@ export const RepostItem = record(app.bsky.feed.repost);
 export const FollowItem = record(app.bsky.graph.follow);
 export const PlayItem = record(fm.teal.feed.play);
 
-/** A thread called out as writing, served in place of its posts. */
+/**
+ * A thread published as writing (a `site.standard.document` whose content is
+ * an `is.sherman.unspecced.documentref` to its first post), served in place
+ * of its posts.
+ */
 export const ThreadItem = Schema.Struct({
-  ...record(is.sherman.unspecced.thread).fields,
+  ...record(site.standard.document).fields,
   /**
    * The thread's posts, oldest first. Never empty: a thread is only served
    * once its root post is cached.

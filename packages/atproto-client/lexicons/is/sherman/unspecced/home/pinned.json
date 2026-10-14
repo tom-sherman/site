@@ -29,7 +29,7 @@
         "uri": {
           "type": "string",
           "format": "at-uri",
-          "description": "What's pinned: an is.sherman.unspecced.thread or a site.standard.document. Not a strong ref, so the pin follows the record's edits."
+          "description": "What's pinned: a site.standard.document, a blog post or a thread. Not a strong ref, so the pin follows the record's edits."
         },
         "hero": {
           "type": "boolean",

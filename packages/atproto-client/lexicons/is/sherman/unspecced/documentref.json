@@ -4,13 +4,13 @@
   "defs": {
     "main": {
       "type": "object",
-      "description": "A site.standard.document's content, held in another record. Used for blog posts migrated from WhiteWind, whose com.whtwnd.blog.entry records keep the Markdown.",
+      "description": "A site.standard.document's content, held in another record: a com.whtwnd.blog.entry for blog posts migrated from WhiteWind, which keeps the Markdown, or an app.bsky.feed.post for a Bluesky thread published as writing.",
       "required": ["uri"],
       "properties": {
         "uri": {
           "type": "string",
           "format": "at-uri",
-          "description": "The record holding the content. Not a strong ref, so the document follows the record's edits."
+          "description": "The record holding the content. For a thread, its first post, in the same repo as the document; the thread is that post and my replies continuing it. Not a strong ref, so the document follows the record's edits."
         }
       }
     }

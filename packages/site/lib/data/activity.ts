@@ -11,7 +11,6 @@ import {
   postImagesOf,
   type PostView,
   type ProfileView,
-  threadTitle,
 } from "./bluesky";
 import type {
   FeedItem,
@@ -33,7 +32,7 @@ import { httpUrl, hueOf, truncate } from "./util";
 
 type Of<T extends ActivityItem["type"]> = Extract<ActivityItem, { type: T }>;
 type Post = Of<"app.bsky.feed.post">;
-type Thread = Of<"is.sherman.unspecced.thread">;
+type Thread = Of<"site.standard.document">;
 type Like = Of<"app.bsky.feed.like">;
 type Repost = Of<"app.bsky.feed.repost">;
 type Follow = Of<"app.bsky.graph.follow">;
@@ -71,7 +70,7 @@ export async function getActivityFeedItems(): Promise<FeedItem[]> {
     const posts =
       item.type === "app.bsky.feed.post"
         ? [item]
-        : item.type === "is.sherman.unspecced.thread"
+        : item.type === "site.standard.document"
           ? item.members
           : [];
     for (const post of posts) texts.set(post.id, post.data.text);
@@ -111,7 +110,7 @@ function toFeedItem(
   switch (item.type) {
     case "app.bsky.feed.post":
       return postItem(item, hydration);
-    case "is.sherman.unspecced.thread":
+    case "site.standard.document":
       return threadItem(item, hydration.views);
     case "app.bsky.feed.like":
       return likeItem(item, hydration.views);
@@ -139,7 +138,7 @@ function urisToHydrate(activity: ReadonlyArray<ActivityItem>): string[] {
   for (const item of activity) {
     if (item.type === "app.bsky.feed.post") {
       uris.add(item.data.reply ? item.data.reply.parent.uri : item.id);
-    } else if (item.type === "is.sherman.unspecced.thread") {
+    } else if (item.type === "site.standard.document") {
       for (const post of item.members) uris.add(post.id);
     } else if (
       (item.type === "app.bsky.feed.like" ||
@@ -235,7 +234,7 @@ function threadItem(
     url: bskyUrl(root.id),
     publishedAt: thread.timestamp,
     network: "bluesky",
-    title: threadTitle(thread.data.title, root.data.text),
+    title: thread.data.title,
     text: root.data.text,
     facets: root.data.facets,
     author: view ? personOf(view.author) : TOM,
