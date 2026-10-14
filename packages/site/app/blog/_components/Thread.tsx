@@ -147,7 +147,7 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     alignSelf: "start",
-    columnGap: 14,
+    columnGap: 10,
     rowGap: 6,
     // Centred on the text's first line (18px at 1.65).
     paddingTop: {
