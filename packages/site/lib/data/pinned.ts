@@ -3,7 +3,7 @@ import { getBlobCidString } from "@atproto/lex";
 import { app, is, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
 import { getRecordOrNull, orNotFound, parseAtUri, pdsClient } from "./atproto";
-import { getBlog } from "./blog";
+import { toBlogPost } from "./blog";
 import {
   bskyUrl,
   cdnImageUrl,
@@ -130,8 +130,8 @@ async function getDocument(
   );
   if (!doc) return null;
   // Blog posts have a page here, even ones whose canonical home is Leaflet.
-  const post = (await getBlog()).posts.find((post) => post.id === doc.uri);
-  const url = post?.path ?? (await documentUrl(doc.value));
+  const url =
+    toBlogPost(doc.uri, doc.value)?.path ?? (await documentUrl(doc.value));
   if (!url) {
     console.warn(`Can't show pinned ${doc.uri}: it has no URL`);
     return null;

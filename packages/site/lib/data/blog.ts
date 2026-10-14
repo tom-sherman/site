@@ -92,8 +92,8 @@ export async function getBlog(): Promise<Blog> {
   return { posts, asOf };
 }
 
-/** `undefined` when the document isn't part of the blog. */
-function toBlogPost(
+/** A document as a blog post; `undefined` when it isn't part of the blog. */
+export function toBlogPost(
   uri: string,
   value: site.standard.document.Main,
 ): BlogPost | undefined {
