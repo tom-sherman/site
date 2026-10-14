@@ -21,6 +21,8 @@ export const colors = stylex.defineVars({
   inkBorder: "oklch(0.4 0.012 95)",
   progressTrack: "oklch(0.38 0.012 95)",
   accent: "oklch(0.88 0.19 125)",
+  // Highlighted text in posts. A soft warm yellow, so it doesn't read as the accent.
+  highlight: "oklch(0.93 0.07 95)",
 });
 
 export const fonts = stylex.defineVars({

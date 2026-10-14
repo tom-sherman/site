@@ -14,6 +14,7 @@ import { getProfile } from "@/lib/data/profile";
 import { formatDateTime, formatShortDate, formatYear } from "@/lib/time";
 import { Footer } from "../_components/Footer";
 import { Header } from "../_components/Header";
+import { Title } from "./_components/Title";
 
 export const metadata: Metadata = {
   title: "Blog – Tom Sherman",
@@ -84,12 +85,6 @@ const styles = stylex.create({
     },
     textDecorationThickness: 1,
     textUnderlineOffset: 4,
-  },
-  // `code` in a title, sized down to sit with the serif.
-  code: {
-    fontFamily: fonts.mono,
-    fontSize: "0.72em",
-    letterSpacing: "-0.02em",
   },
   description: {
     marginTop: 8,
@@ -191,19 +186,5 @@ function PostRow({ post }: { post: BlogPost }) {
         )}
       </div>
     </Link>
-  );
-}
-
-/** A title with its Markdown-style `code` spans set in mono. */
-function Title({ text }: { text: string }) {
-  // Odd parts are what was between backticks.
-  return text.split(/`([^`]+)`/).map((part, i) =>
-    i % 2 ? (
-      <code key={i} {...stylex.props(styles.code)}>
-        {part}
-      </code>
-    ) : (
-      part
-    ),
   );
 }

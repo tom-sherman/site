@@ -51,6 +51,27 @@ export function formatShortDate(ts: Timestamp): string {
   return `${pad(day)}.${pad(month)}`;
 }
 
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** `4 October 2026` */
+export function formatLongDate(ts: Timestamp): string {
+  const { year, month, day } = zonedParts(ts);
+  return `${day} ${MONTHS[month - 1]} ${year}`;
+}
+
 /** `2026` */
 export function formatYear(ts: Timestamp): string {
   return String(zonedParts(ts).year);

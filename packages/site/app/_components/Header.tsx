@@ -3,26 +3,16 @@ import Image from "next/image";
 import { Container } from "@/lib/components/Container";
 import { Glyph } from "@/lib/components/Glyph";
 import { Marginalia, TextLink } from "@/lib/components/Text";
-import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
+import { fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { Profile } from "@/lib/data/profile";
 // My Bluesky profile photo as of October 2026.
 import photo from "./avatar.webp";
+import { Breadcrumb } from "./Breadcrumb";
 
 const styles = stylex.create({
   header: {
     paddingTop: 72,
     paddingBottom: 80,
-  },
-  breadcrumb: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    fontFamily: fonts.mono,
-    fontSize: fontSizes.label,
-    color: colors.muted,
-  },
-  current: {
-    color: colors.ink,
   },
   nameLine: {
     display: "flex",
@@ -93,15 +83,7 @@ export function Header({
 }) {
   return (
     <Container as="header" style={styles.header}>
-      <div {...stylex.props(styles.breadcrumb)}>
-        <TextLink href="/" variant="quiet">
-          {profile.domain}
-        </TextLink>
-        <span aria-hidden>/</span>
-        <span aria-current="page" {...stylex.props(styles.current)}>
-          {page}
-        </span>
-      </div>
+      <Breadcrumb domain={profile.domain} trail={[{ label: page }]} />
       <div {...stylex.props(styles.nameLine)}>
         <h1 {...stylex.props(styles.name)}>
           <span>{profile.givenName}</span>
