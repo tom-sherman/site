@@ -4,7 +4,7 @@ Typed AT Protocol lexicon schemas, generated with [`@atproto/lex`](https://npmx.
 
 Installed lexicons: `app.bsky.actor.getProfiles`, `app.bsky.feed.getPosts`, `app.bsky.feed.like`, `app.bsky.feed.post`, `app.bsky.feed.repost`, `app.bsky.graph.follow`, `com.atproto.sync.getLatestCommit`, `com.atproto.sync.getRepo`, `fm.teal.actor.status`, `fm.teal.feed.play`, `site.standard.document`, `site.standard.publication`
 
-Authored here: `is.sherman.unspecced.thread`, `is.sherman.unspecced.home.pinned` (see [Our own lexicons](#our-own-lexicons))
+Authored here: `is.sherman.unspecced.thread`, `is.sherman.unspecced.home.pinned`, `is.sherman.unspecced.documentref` (see [Our own lexicons](#our-own-lexicons))
 
 Vendored: `games.atmosphere.status` (see [Vendored lexicons](#vendored-lexicons))
 
@@ -102,6 +102,7 @@ They're unspecced: records only this site reads, so the lexicons aren't publishe
 
 - `is.sherman.unspecced.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
 - `is.sherman.unspecced.home.pinned`: what the homepage pins, in order. One record, rkey `self`. `items` are strong refs (`subject`) to what's pinned, an `is.sherman.unspecced.thread` or a `site.standard.document` (the site leaves out anything else), each with an optional `hero` flag: heroes are shown as cards, the rest under "More highlights". `updatedAt` is when the list last changed.
+- `is.sherman.unspecced.documentref`: a `site.standard.document`'s `content` when it lives in another record. `uri` is that record's at-uri, not a strong ref, so the document follows its edits. My blog posts migrated from WhiteWind use it to point at their `com.whtwnd.blog.entry`, which keeps the Markdown.
 
 ### Vendored lexicons
 
