@@ -3,6 +3,7 @@ import { getBlobCidString } from "@atproto/lex";
 import { app, is, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
 import { getRecordOrNull, orNotFound, parseAtUri, pdsClient } from "./atproto";
+import { getBlog } from "./blog";
 import {
   bskyUrl,
   cdnImageUrl,
@@ -40,9 +41,6 @@ type Found = PinnedItem & { root?: string };
  * Pins can be of any age, so they're read from their own records rather than
  * the activity cache, which only keeps 30 days. A pin that's gone, or of
  * anything else, is left out.
- *
- * Pins follow the records' current versions rather than the CIDs in their
- * strong refs, since a PDS only serves the current version.
  */
 export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
@@ -58,7 +56,7 @@ export async function getPinned(): Promise<PinnedItem[]> {
     await Promise.all(
       pinned.value.items.map((pin) =>
         getPinnedItem(pin).catch((error: unknown) => {
-          console.error(`Couldn't get pinned ${pin.subject.uri}`, error);
+          console.error(`Couldn't get pinned ${pin.uri}`, error);
           return null;
         }),
       ),
@@ -80,17 +78,17 @@ export async function getPinned(): Promise<PinnedItem[]> {
 }
 
 async function getPinnedItem({
-  subject,
+  uri,
   hero = false,
 }: Pin): Promise<Found | null> {
-  const ref = parseAtUri(subject.uri);
+  const ref = parseAtUri(uri);
   switch (ref?.collection) {
     case is.sherman.unspecced.thread.$nsid:
       return getThread(ref, hero);
     case site.standard.document.$nsid:
       return getDocument(ref, hero);
     default:
-      console.warn(`Can't show pinned ${subject.uri}`);
+      console.warn(`Can't show pinned ${uri}`);
       return null;
   }
 }
@@ -131,7 +129,9 @@ async function getDocument(
     client.get(site.standard.document, { repo, rkey }),
   );
   if (!doc) return null;
-  const url = await documentUrl(doc.value);
+  // Blog posts have a page here, even ones whose canonical home is Leaflet.
+  const post = (await getBlog()).posts.find((post) => post.id === doc.uri);
+  const url = post?.path ?? (await documentUrl(doc.value));
   if (!url) {
     console.warn(`Can't show pinned ${doc.uri}: it has no URL`);
     return null;

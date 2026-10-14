@@ -101,7 +101,7 @@ Lexicons under `is.sherman.unspecced` are written by hand in `lexicons/is/sherma
 They're unspecced: records only this site reads, so the lexicons aren't published and can change freely.
 
 - `is.sherman.unspecced.thread`: calls out one of my Bluesky threads as writing, so the activity feed shows it as one item. `subject` is a strong ref to the thread's first post, in the same repo, by DID. `title` is optional.
-- `is.sherman.unspecced.home.pinned`: what the homepage pins, in order. One record, rkey `self`. `items` are strong refs (`subject`) to what's pinned, an `is.sherman.unspecced.thread` or a `site.standard.document` (the site leaves out anything else), each with an optional `hero` flag: heroes are shown as cards, the rest under "More highlights". `updatedAt` is when the list last changed.
+- `is.sherman.unspecced.home.pinned`: what the homepage pins, in order. One record, rkey `self`. `items` are the at-uris (`uri`, not strong refs, so pins follow edits) of what's pinned, an `is.sherman.unspecced.thread` or a `site.standard.document` (the site leaves out anything else), each with an optional `hero` flag: heroes are shown as cards, the rest under "More highlights". `updatedAt` is when the list last changed.
 - `is.sherman.unspecced.documentref`: a `site.standard.document`'s `content` when it lives in another record. `uri` is that record's at-uri, not a strong ref, so the document follows its edits. My blog posts migrated from WhiteWind use it to point at their `com.whtwnd.blog.entry`, which keeps the Markdown.
 
 ### Vendored lexicons

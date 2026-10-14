@@ -24,12 +24,12 @@
     },
     "item": {
       "type": "object",
-      "required": ["subject"],
+      "required": ["uri"],
       "properties": {
-        "subject": {
-          "type": "ref",
-          "ref": "com.atproto.repo.strongRef",
-          "description": "What's pinned: an is.sherman.unspecced.thread or a site.standard.document."
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "What's pinned: an is.sherman.unspecced.thread or a site.standard.document. Not a strong ref, so the pin follows the record's edits."
         },
         "hero": {
           "type": "boolean",
