@@ -11,7 +11,15 @@ const styles = stylex.create({
   },
   refLink: {
     paddingInline: 2,
+    // Linked back to, it lands partway down the screen, so the text it's
+    // in (often ending with it) is in view rather than scrolled off the top.
+    scrollMarginTop: "40vh",
     color: colors.ink,
+    // Marks where a footnote's back link landed.
+    backgroundColor: {
+      default: null,
+      ":target": colors.highlight,
+    },
     textDecorationLine: {
       default: "none",
       ":hover": "underline",
@@ -34,6 +42,11 @@ const styles = stylex.create({
     marginTop: "0.5em",
     paddingLeft: "0.2em",
     scrollMarginTop: 24,
+    // Marks the footnote a reference jumped to.
+    backgroundColor: {
+      default: null,
+      ":target": colors.highlight,
+    },
   },
   backLink: {
     marginLeft: 6,
