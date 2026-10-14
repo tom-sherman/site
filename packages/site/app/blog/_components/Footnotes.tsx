@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
+import { footnoteRef } from "./markers.stylex";
 
 const styles = stylex.create({
   ref: {
@@ -76,7 +77,7 @@ export function FootnoteRef({
         href={`#${id}`}
         id={first ? `${id}-ref` : undefined}
         aria-label={`Footnote ${number}`}
-        {...stylex.props(styles.refLink)}
+        {...stylex.props(styles.refLink, footnoteRef)}
       >
         {number}
       </a>

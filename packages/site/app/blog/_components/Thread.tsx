@@ -25,6 +25,7 @@ import { formatDateTime, formatLongDate } from "@/lib/time";
 import { PostImages } from "../../_components/feed/PostImages";
 import { BackLink, Footnote, FootnoteRef, Footnotes } from "./Footnotes";
 import { LinkCard } from "./LinkCard";
+import { footnoteRef } from "./markers.stylex";
 import { BskyEmbed } from "./PostEmbed";
 import { Img } from "./Prose";
 
@@ -75,6 +76,10 @@ const styles = stylex.create({
     backgroundColor: {
       default: null,
       ":hover": colors.hoverTint,
+      // Back from one of its footnotes. `:has()` is Baseline since 2023, and
+      // without it there's just no highlight.
+      // oxlint-disable-next-line @stylexjs/no-lookahead-selectors
+      [stylex.when.descendant(":target", footnoteRef)]: colors.highlightWash,
     },
   },
   first: {

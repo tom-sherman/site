@@ -23,6 +23,8 @@ export const colors = stylex.defineVars({
   accent: "oklch(0.88 0.19 125)",
   // Highlighted text in posts. A soft warm yellow, so it doesn't read as the accent.
   highlight: "oklch(0.93 0.07 95)",
+  // The same yellow, paler, behind a whole block: a post a link landed on.
+  highlightWash: "oklch(0.955 0.035 95)",
 });
 
 export const fonts = stylex.defineVars({
