@@ -138,8 +138,6 @@ export default async function BlogPostPage({
 
   return (
     <>
-      {/* The record this page shows, wherever the post's canonical home is. */}
-      <link rel="alternate" href={post.id} />
       {/* Lets standard.site readers verify the document is this page, even
           for Leaflet's posts, whose canonical home is Leaflet. */}
       <link rel="site.standard.document" href={post.id} />
