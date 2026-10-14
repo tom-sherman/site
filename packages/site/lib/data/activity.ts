@@ -2,6 +2,7 @@ import "server-only";
 import type { ActivityItem } from "@repo/activity-cache/api";
 import { app } from "@repo/atproto-client";
 import { activityCache } from "../activity-cache";
+import { toBlogPost } from "./blog";
 import {
   bskyProfileUrl,
   bskyUrl,
@@ -231,7 +232,8 @@ function threadItem(
   return {
     kind: "thread",
     id: thread.id,
-    url: bskyUrl(root.id),
+    // Its page here, or on Bluesky if it isn't in the blog.
+    url: toBlogPost(thread.id, thread.data)?.path ?? bskyUrl(root.id),
     publishedAt: thread.timestamp,
     network: "bluesky",
     title: thread.data.title,

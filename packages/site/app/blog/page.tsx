@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/lib/components/Container";
+import { Glyph } from "@/lib/components/Glyph";
 import { Eyebrow, Rule } from "@/lib/components/Text";
 import {
   breakpoints,
@@ -93,6 +94,21 @@ const styles = stylex.create({
     lineHeight: 1.45,
     color: colors.body,
   },
+  // Like a chip, but not a control: it says what kind of post it is.
+  kind: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    paddingBlock: 2,
+    paddingInline: 7,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.chipBorder,
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.micro,
+    color: colors.ink,
+  },
   tags: {
     display: "flex",
     flexWrap: "wrap",
@@ -174,6 +190,13 @@ function PostRow({ post }: { post: BlogPost }) {
         <h3 {...stylex.props(styles.title)}>
           <Title text={post.title} />
         </h3>
+        {post.kind === "thread" && (
+          <div>
+            <span {...stylex.props(styles.kind)}>
+              <Glyph name="bluesky" /> Thread
+            </span>
+          </div>
+        )}
         {post.description && (
           <p {...stylex.props(styles.description)}>{post.description}</p>
         )}

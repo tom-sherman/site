@@ -17,3 +17,11 @@
 :root:has(dialog:modal) {
   overflow: hidden;
 }
+
+/* Something that links as a whole through a link stretched over it (its
+   ::after covers it, `data-stretched`): links and buttons of its own stay
+   clickable on top. */
+[data-stretched-link] :is(a:not([data-stretched]), button) {
+  position: relative;
+  z-index: 1;
+}

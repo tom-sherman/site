@@ -1,6 +1,6 @@
 import "server-only";
 import { getBlobCidString, lexParse } from "@atproto/lex";
-import { is, pub, site } from "@repo/atproto-client";
+import { app, is, pub, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
 import {
   getRecordOrNull,
@@ -10,6 +10,7 @@ import {
   resolvePds,
 } from "./atproto";
 import { DID } from "./profile";
+import { getThreadPosts, type ThreadPost } from "./thread";
 import type { Timestamp } from "./types";
 
 /**
@@ -38,6 +39,11 @@ export const PUBLICATION = PUBLICATIONS[0].uri;
 export interface BlogPost {
   /** The document's at-uri. */
   id: string;
+  /**
+   * An article, or a Bluesky thread published as writing (see
+   * {@link threadRootOf}).
+   */
+  kind: "article" | "thread";
   /** Its page here, `/blog/{slug}-{rkey}` or `/blog/{rkey}`. */
   path: string;
   title: string;
@@ -106,6 +112,7 @@ export function toBlogPost(
   if (!new RegExp(`^([a-z0-9-]+-)?${rkey}$`, "i").test(rest)) return;
   return {
     id: uri,
+    kind: threadRootOf(uri, value) ? "thread" : "article",
     path: `/blog/${rest}`,
     title: value.title,
     description: value.description || undefined,
@@ -116,6 +123,24 @@ export function toBlogPost(
   };
 }
 
+/**
+ * The thread a document publishes as writing: the first post its content
+ * points at (with an `is.sherman.unspecced.documentref`), when that's a post
+ * in the document's own repo.
+ */
+export function threadRootOf(
+  uri: string,
+  value: site.standard.document.Main,
+): string | undefined {
+  const ref = is.sherman.unspecced.documentref.$safeParse(value.content);
+  if (!ref.success) return undefined;
+  const root = parseAtUri(ref.value.uri);
+  return root?.collection === app.bsky.feed.post.$nsid &&
+    root.repo === parseAtUri(uri)?.repo
+    ? ref.value.uri
+    : undefined;
+}
+
 export type LeafletPage = pub.leaflet.pages.linearDocument.Main;
 
 /** A post's body, in whichever format its document's `content` is. */
@@ -123,6 +148,8 @@ export type PostBody =
   | { format: "markdown"; markdown: string }
   /** `did` is the repo holding the blocks' blobs. */
   | { format: "leaflet"; did: string; pages: LeafletPage[] }
+  /** Never empty. */
+  | { format: "thread"; posts: ThreadPost[] }
   | { format: "unsupported" };
 
 export interface Post extends BlogPost {
@@ -143,7 +170,10 @@ export async function getPost(rkey: string): Promise<Post | null> {
   );
   const summary = doc && toBlogPost(doc.uri, doc.value);
   if (!summary) return null;
-  const body = await getBody(doc.value.content, DID);
+  const root = threadRootOf(doc.uri, doc.value);
+  const body = root
+    ? await getThreadBody(root)
+    : await getBody(doc.value.content, DID);
   return {
     ...summary,
     body,
@@ -152,7 +182,9 @@ export async function getPost(rkey: string): Promise<Post | null> {
         ? body.markdown
         : body.format === "leaflet"
           ? leafletText(body.pages)
-          : (doc.value.textContent ?? ""),
+          : body.format === "thread"
+            ? body.posts.map((post) => post.text).join(" ")
+            : (doc.value.textContent ?? ""),
     ),
     bskyPostUri: doc.value.bskyPostRef?.uri,
   };
@@ -179,6 +211,21 @@ async function getBody(content: unknown, did: string): Promise<PostBody> {
 
   console.warn("Unsupported document content", content);
   return { format: "unsupported" };
+}
+
+/**
+ * A thread's posts, from Bluesky's AppView, which has their counts too. If
+ * it can't be read, the post is shown as unsupported for now; it's only
+ * cached for minutes.
+ */
+async function getThreadBody(root: string): Promise<PostBody> {
+  const posts = await getThreadPosts(root).catch((error: unknown) => {
+    console.error(`Couldn't get thread ${root}`, error);
+    return [];
+  });
+  return posts.length > 0
+    ? { format: "thread", posts }
+    : { format: "unsupported" };
 }
 
 /** The content of an `is.sherman.unspecced.documentref`: a WhiteWind entry's Markdown. */

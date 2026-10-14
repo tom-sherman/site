@@ -9,7 +9,7 @@ export type ProfileView = app.bsky.actor.defs.ProfileViewDetailed;
 /** `getPosts` takes at most 25 URIs, and `getProfiles` 25 actors. */
 const PER_REQUEST = 25;
 
-const appview = new Client("https://public.api.bsky.app");
+export const appview = new Client("https://public.api.bsky.app");
 
 /**
  * Posts from Bluesky's AppView, by at-uri. Posts that are missing (deleted,

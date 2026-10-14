@@ -1,9 +1,9 @@
 import "server-only";
 import { getBlobCidString } from "@atproto/lex";
-import { app, is, site } from "@repo/atproto-client";
+import { is, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
 import { getRecordOrNull, orNotFound, parseAtUri, pdsClient } from "./atproto";
-import { toBlogPost } from "./blog";
+import { threadRootOf, toBlogPost } from "./blog";
 import {
   bskyUrl,
   cdnImageUrl,
@@ -88,26 +88,13 @@ async function getPinnedItem({
     client.get(site.standard.document, { repo: ref.repo, rkey: ref.rkey }),
   );
   if (!doc) return null;
-  const root = threadRootOf(ref.repo, doc.value);
+  const root = threadRootOf(doc.uri, doc.value);
   return root
     ? getThread(doc.uri, doc.value, root, hero)
     : getBlogPost(doc.uri, ref.repo, doc.value, hero);
 }
 
-/**
- * The thread a document publishes as writing: the first post its content
- * points at, when that's a post in the document's own repo.
- */
-function threadRootOf(repo: string, doc: site.standard.document.Main) {
-  const ref = is.sherman.unspecced.documentref.$safeParse(doc.content);
-  if (!ref.success) return undefined;
-  const root = parseAtUri(ref.value.uri);
-  return root?.collection === app.bsky.feed.post.$nsid && root.repo === repo
-    ? ref.value.uri
-    : undefined;
-}
-
-/** A thread, linking to its first post on Bluesky. */
+/** A thread, linking to its page here, or else to its first post on Bluesky. */
 function getThread(
   uri: string,
   doc: site.standard.document.Main,
@@ -117,7 +104,7 @@ function getThread(
   return {
     id: uri,
     kind: "thread",
-    url: bskyUrl(root),
+    url: toBlogPost(uri, doc)?.path ?? bskyUrl(root),
     publishedAt: Date.parse(doc.publishedAt),
     title: doc.title,
     hero,

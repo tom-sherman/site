@@ -4,11 +4,11 @@ import { getBlobCidString } from "@atproto/lex";
 import { pub } from "@repo/atproto-client";
 import * as stylex from "@stylexjs/stylex";
 import { Fragment, type ReactNode } from "react";
-import { Card, CardHeader } from "@/lib/components/Card";
 import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { LeafletPage } from "@/lib/data/blog";
 import { bskyProfileUrl, cdnImageUrl } from "@/lib/data/bluesky";
 import { CodeBlock } from "./CodeBlock";
+import { LinkCard } from "./LinkCard";
 import { BskyEmbed } from "./PostEmbed";
 import {
   A,
@@ -37,21 +37,6 @@ type ListItemValue =
 type Footnote = pub.leaflet.richtext.facet.Footnote;
 
 const styles = stylex.create({
-  websiteBody: {
-    paddingTop: 12,
-    paddingInline: 18,
-    paddingBottom: 16,
-  },
-  websiteTitle: {
-    fontWeight: 600,
-    color: colors.ink,
-  },
-  websiteDescription: {
-    marginTop: 4,
-    fontSize: fontSizes.body,
-    lineHeight: 1.45,
-    color: colors.subtle,
-  },
   footnoteRef: {
     fontFamily: fonts.mono,
     fontSize: "0.62em",
@@ -298,27 +283,16 @@ function Website({
   block: pub.leaflet.blocks.website.Main;
   did: string;
 }) {
-  if (!URL.canParse(block.src)) return null;
-  const { protocol, hostname } = new URL(block.src);
-  if (protocol !== "https:" && protocol !== "http:") return null;
-  const preview =
-    block.previewImage &&
-    cdnImageUrl("feed_thumbnail", did, getBlobCidString(block.previewImage));
   return (
-    <Card href={block.src}>
-      <CardHeader glyph="external" label={hostname} />
-      {preview && <Img src={preview} alt="" />}
-      <div {...stylex.props(styles.websiteBody)}>
-        <div {...stylex.props(styles.websiteTitle)}>
-          {block.title || block.src}
-        </div>
-        {block.description && (
-          <p {...stylex.props(styles.websiteDescription)}>
-            {block.description}
-          </p>
-        )}
-      </div>
-    </Card>
+    <LinkCard
+      href={block.src}
+      title={block.title}
+      description={block.description}
+      image={
+        block.previewImage &&
+        cdnImageUrl("feed_thumbnail", did, getBlobCidString(block.previewImage))
+      }
+    />
   );
 }
 

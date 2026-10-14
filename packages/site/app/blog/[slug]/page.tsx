@@ -8,12 +8,14 @@ import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import { getBlog, getPost, type Post, rkeyOf } from "@/lib/data/blog";
 import { bskyUrl } from "@/lib/data/bluesky";
 import { getProfile } from "@/lib/data/profile";
+import { truncate } from "@/lib/data/util";
 import { formatDateTime, formatLongDate } from "@/lib/time";
 import { Breadcrumb } from "../../_components/Breadcrumb";
 import { Footer } from "../../_components/Footer";
 import { Title } from "../_components/Title";
 import { LeafletContent } from "../_components/Leaflet";
 import { Markdown } from "../_components/Markdown";
+import { Thread } from "../_components/Thread";
 
 const styles = stylex.create({
   top: {
@@ -103,16 +105,17 @@ export async function generateMetadata({
 }: PageProps<"/blog/[slug]">): Promise<Metadata> {
   const post = await postFor((await params).slug);
   if (!post) return {};
+  const description = descriptionOf(post);
   return {
     title: `${post.title.replaceAll("`", "")} – Tom Sherman`,
-    description: post.description,
+    description,
     authors: { name: "Tom Sherman", url: "https://tom.sherman.is" },
     keywords: post.tags,
     alternates: { canonical: post.canonicalUrl },
     openGraph: {
       type: "article",
       title: post.title.replaceAll("`", ""),
-      description: post.description,
+      description,
       url: post.canonicalUrl,
       publishedTime: new Date(post.publishedAt).toISOString(),
       tags: post.tags,
@@ -155,6 +158,15 @@ export default async function BlogPostPage({
               >
                 {formatLongDate(post.publishedAt)}
               </time>
+              {post.body.format === "thread" && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    <Glyph name="bluesky" /> Thread of {post.body.posts.length}{" "}
+                    posts
+                  </span>
+                </>
+              )}
               <span aria-hidden>·</span>
               <span>{post.readingMinutes} min read</span>
             </p>
@@ -195,14 +207,35 @@ export default async function BlogPostPage({
   );
 }
 
+/** A thread has no description of its own, so its first post stands in. */
+function descriptionOf(post: Post) {
+  if (post.description) return post.description;
+  if (post.body.format === "thread") {
+    return truncate(post.body.posts[0].text, 200);
+  }
+  return undefined;
+}
+
 function PostBody({ post }: { post: Post }) {
   switch (post.body.format) {
     case "markdown":
       return <Markdown content={post.body.markdown} />;
     case "leaflet":
       return <LeafletContent did={post.body.did} pages={post.body.pages} />;
+    case "thread":
+      return <Thread posts={post.body.posts} />;
     case "unsupported":
-      return (
+      // A thread is only unsupported when Bluesky can't be reached.
+      return post.kind === "thread" ? (
+        <p {...stylex.props(styles.unsupported)}>
+          This thread can&apos;t be shown right now.{" "}
+          {post.bskyPostUri && (
+            <TextLink href={bskyUrl(post.bskyPostUri)}>
+              Read it on Bluesky
+            </TextLink>
+          )}
+        </p>
+      ) : (
         <p {...stylex.props(styles.unsupported)}>
           This post is in a format the site can&apos;t show yet.{" "}
           {!post.ownPublication && (
