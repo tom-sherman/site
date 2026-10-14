@@ -4,6 +4,24 @@ import { app } from "@repo/atproto-client";
 import { appview, bskyUrl, type PostView } from "./bluesky";
 import type { Facet, PostImage, Timestamp } from "./types";
 
+/** A thread published as writing. */
+export interface Thread {
+  /** The thread's main line, in order. Never empty. */
+  posts: ThreadPost[];
+  /** Where I branched off the main line later, numbered from 1 in order. */
+  forks: ThreadFork[];
+}
+
+/**
+ * A later branch off the thread's main line: the reply that started it and
+ * anything under it, oldest first. Shown as a footnote to the post it
+ * replies to.
+ */
+export interface ThreadFork {
+  number: number;
+  posts: ThreadPost[];
+}
+
 /** One post in a thread published as writing. */
 export interface ThreadPost {
   uri: string;
@@ -26,6 +44,8 @@ export interface ThreadPost {
   reposts: number;
   likes: number;
   quotes: number;
+  /** The numbers of the forks that branch off it. */
+  forks: number[];
 }
 
 const { threadViewPost } = app.bsky.feed.defs;
@@ -33,33 +53,52 @@ type ThreadViewPost = app.bsky.feed.defs.ThreadViewPost;
 
 /**
  * A thread on Bluesky: its first post and the author's replies continuing
- * it, in reading order. A reply only counts when its parent is in the
- * thread, so the author's answers to other people (and anything under them)
- * are left out. Where the author branched, each branch is read through
- * before the next, oldest first. Empty when the first post is gone.
+ * it. A reply only counts when its parent is in the thread, so the author's
+ * answers to other people (and anything under them) are left out.
+ *
+ * Where the author replied to one post more than once, the earliest reply
+ * carries the main line on and the later ones are forks: usually an
+ * afterthought, added once the thread was written. `null` when the first
+ * post is gone.
  */
-export async function getThreadPosts(rootUri: string): Promise<ThreadPost[]> {
+export async function getThread(rootUri: string): Promise<Thread | null> {
   const { thread } = await appview.call(app.bsky.feed.getPostThread, {
     uri: rootUri as l.AtUriString,
     depth: 1000,
     parentHeight: 0,
   });
-  if (!threadViewPost.isTypeOf(thread)) return [];
+  if (!threadViewPost.isTypeOf(thread)) return null;
 
   const author = thread.post.author.did;
-  const posts: ThreadPost[] = [];
-  const visit = (node: ThreadViewPost) => {
-    posts.push(toThreadPost(node.post));
-    const continuing = (node.replies ?? [])
+  const repliesTo = (node: ThreadViewPost) =>
+    (node.replies ?? [])
       .filter(
         (reply): reply is l.$Typed<ThreadViewPost> =>
           threadViewPost.isTypeOf(reply) && reply.post.author.did === author,
       )
       .toSorted((a, b) => createdAt(a.post) - createdAt(b.post));
-    for (const reply of continuing) visit(reply);
-  };
-  visit(thread);
-  return posts;
+  // A fork reads as one chain, branches of its own included, oldest first.
+  const chain = (node: ThreadViewPost): ThreadPost[] => [
+    toThreadPost(node.post),
+    ...repliesTo(node).flatMap(chain),
+  ];
+
+  const posts: ThreadPost[] = [];
+  const forks: ThreadFork[] = [];
+  for (
+    let node: ThreadViewPost | undefined = thread;
+    node;
+    node = repliesTo(node)[0]
+  ) {
+    const post = toThreadPost(node.post);
+    for (const fork of repliesTo(node).slice(1)) {
+      const number = forks.length + 1;
+      forks.push({ number, posts: chain(fork) });
+      post.forks.push(number);
+    }
+    posts.push(post);
+  }
+  return { posts, forks };
 }
 
 function toThreadPost(view: PostView): ThreadPost {
@@ -75,6 +114,7 @@ function toThreadPost(view: PostView): ThreadPost {
     reposts: view.repostCount ?? 0,
     likes: view.likeCount ?? 0,
     quotes: view.quoteCount ?? 0,
+    forks: [],
   };
 }
 

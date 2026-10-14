@@ -10,7 +10,7 @@ import {
   resolvePds,
 } from "./atproto";
 import { DID } from "./profile";
-import { getThreadPosts, type ThreadPost } from "./thread";
+import { getThread, type Thread } from "./thread";
 import type { Timestamp } from "./types";
 
 /**
@@ -148,8 +148,7 @@ export type PostBody =
   | { format: "markdown"; markdown: string }
   /** `did` is the repo holding the blocks' blobs. */
   | { format: "leaflet"; did: string; pages: LeafletPage[] }
-  /** Never empty. */
-  | { format: "thread"; posts: ThreadPost[] }
+  | ({ format: "thread" } & Thread)
   | { format: "unsupported" };
 
 export interface Post extends BlogPost {
@@ -183,7 +182,9 @@ export async function getPost(rkey: string): Promise<Post | null> {
         : body.format === "leaflet"
           ? leafletText(body.pages)
           : body.format === "thread"
-            ? body.posts.map((post) => post.text).join(" ")
+            ? [...body.posts, ...body.forks.flatMap((fork) => fork.posts)]
+                .map((post) => post.text)
+                .join(" ")
             : (doc.value.textContent ?? ""),
     ),
     bskyPostUri: doc.value.bskyPostRef?.uri,
@@ -219,13 +220,11 @@ async function getBody(content: unknown, did: string): Promise<PostBody> {
  * cached for minutes.
  */
 async function getThreadBody(root: string): Promise<PostBody> {
-  const posts = await getThreadPosts(root).catch((error: unknown) => {
+  const thread = await getThread(root).catch((error: unknown) => {
     console.error(`Couldn't get thread ${root}`, error);
-    return [];
+    return null;
   });
-  return posts.length > 0
-    ? { format: "thread", posts }
-    : { format: "unsupported" };
+  return thread ? { format: "thread", ...thread } : { format: "unsupported" };
 }
 
 /** The content of an `is.sherman.unspecced.documentref`: a WhiteWind entry's Markdown. */

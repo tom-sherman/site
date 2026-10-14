@@ -15,10 +15,15 @@ import {
   fonts,
   fontSizes,
 } from "@/lib/components/tokens.stylex";
-import type { ThreadPost } from "@/lib/data/thread";
+import type {
+  Thread as ThreadData,
+  ThreadFork,
+  ThreadPost,
+} from "@/lib/data/thread";
 import { formatCount } from "@/lib/feed";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, formatLongDate } from "@/lib/time";
 import { PostImages } from "../../_components/feed/PostImages";
+import { BackLink, Footnote, FootnoteRef, Footnotes } from "./Footnotes";
 import { LinkCard } from "./LinkCard";
 import { BskyEmbed } from "./PostEmbed";
 import { Img } from "./Prose";
@@ -86,6 +91,39 @@ const styles = stylex.create({
     color: colors.body,
     whiteSpace: "pre-wrap",
     overflowWrap: "break-word",
+  },
+  // In a footnote, the text is the footnotes' size and colour.
+  footnoteText: {
+    fontSize: "inherit",
+    lineHeight: "inherit",
+    color: "inherit",
+  },
+  fork: {
+    display: "flex",
+    flexDirection: "column",
+    rowGap: 14,
+  },
+  forkPost: {
+    display: "flex",
+    flexDirection: "column",
+    rowGap: 8,
+  },
+  forkMeta: {
+    display: "flex",
+    alignItems: "center",
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.micro,
+    color: colors.muted,
+  },
+  forkLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    color: {
+      default: colors.muted,
+      ":hover": colors.ink,
+    },
+    textDecoration: "none",
   },
   video: {
     display: "flex",
@@ -156,26 +194,115 @@ const styles = stylex.create({
 });
 
 /**
- * A Bluesky thread published as writing: its posts in order, each with its
- * counts, each linking to itself on Bluesky.
+ * A Bluesky thread published as writing: its main line in order, each post
+ * with its counts and linking to itself on Bluesky. Forks are footnotes to
+ * the posts they branch off.
  */
-export function Thread({ posts }: { posts: ThreadPost[] }) {
+export function Thread({ posts, forks }: ThreadData) {
   return (
-    <ol aria-label="Posts in this thread" {...stylex.props(styles.thread)}>
-      {posts.map((post, i) => (
-        <li
-          key={post.uri}
-          data-stretched-link
-          {...stylex.props(
-            styles.post,
-            stylex.defaultMarker(),
-            i === 0 && styles.first,
+    <>
+      <ol aria-label="Posts in this thread" {...stylex.props(styles.thread)}>
+        {posts.map((post, i) => (
+          <li
+            key={post.uri}
+            data-stretched-link
+            {...stylex.props(
+              styles.post,
+              stylex.defaultMarker(),
+              i === 0 && styles.first,
+            )}
+          >
+            <ThreadPostView post={post} position={i + 1} of={posts.length} />
+          </li>
+        ))}
+      </ol>
+      {forks.length > 0 && (
+        <Footnotes>
+          {forks.map((fork) => (
+            <Footnote key={fork.number} id={forkId(fork.number)}>
+              <ForkView fork={fork} />
+            </Footnote>
+          ))}
+        </Footnotes>
+      )}
+    </>
+  );
+}
+
+const forkId = (number: number) => `fork-${number}`;
+
+/** What a post says: its text and whatever it embeds. */
+function PostContent({
+  post,
+  variant = "post",
+}: {
+  post: ThreadPost;
+  variant?: "post" | "footnote";
+}) {
+  const footnote = variant === "footnote";
+  return (
+    <>
+      {(post.text || post.forks.length > 0) && (
+        <p {...stylex.props(styles.text, footnote && styles.footnoteText)}>
+          <RichText text={post.text} facets={post.facets} />
+          {post.forks.map((number) => (
+            <FootnoteRef
+              key={number}
+              id={forkId(number)}
+              number={number}
+              first
+            />
+          ))}
+        </p>
+      )}
+      {post.images.length > 0 && <PostImages images={post.images} />}
+      {post.video && (
+        <div {...stylex.props(styles.video)}>
+          {post.video.thumbnail && (
+            <Img src={post.video.thumbnail} alt={post.video.alt} />
           )}
-        >
-          <ThreadPostView post={post} position={i + 1} of={posts.length} />
-        </li>
+          <span {...stylex.props(styles.videoLabel)}>▶ Video, on Bluesky</span>
+        </div>
+      )}
+      {post.external && (
+        <LinkCard
+          href={post.external.uri}
+          title={post.external.title}
+          description={post.external.description}
+          image={post.external.thumb}
+        />
+      )}
+      {post.quote && <BskyEmbed uri={post.quote} />}
+    </>
+  );
+}
+
+/**
+ * A fork as a footnote: its posts in order, each dated (it was usually
+ * added later) and linking to itself on Bluesky.
+ */
+function ForkView({ fork }: { fork: ThreadFork }) {
+  return (
+    <div {...stylex.props(styles.fork)}>
+      {fork.posts.map((post, i) => (
+        <div key={post.uri} {...stylex.props(styles.forkPost)}>
+          <PostContent post={post} variant="footnote" />
+          <p {...stylex.props(styles.forkMeta)}>
+            <a
+              href={post.url}
+              title={formatDateTime(post.createdAt)}
+              {...stylex.props(styles.forkLink)}
+            >
+              {formatLongDate(post.createdAt)}, on Bluesky
+              <ArrowUpRight {...ICON} />
+            </a>
+            {i === fork.posts.length - 1 && (
+              <BackLink id={forkId(fork.number)} />
+            )}
+          </p>
+        </div>
       ))}
-    </ol>
+    </div>
   );
 }
 
@@ -191,31 +318,7 @@ function ThreadPostView({
   return (
     <>
       <div {...stylex.props(styles.content)}>
-        {post.text && (
-          <p {...stylex.props(styles.text)}>
-            <RichText text={post.text} facets={post.facets} />
-          </p>
-        )}
-        {post.images.length > 0 && <PostImages images={post.images} />}
-        {post.video && (
-          <div {...stylex.props(styles.video)}>
-            {post.video.thumbnail && (
-              <Img src={post.video.thumbnail} alt={post.video.alt} />
-            )}
-            <span {...stylex.props(styles.videoLabel)}>
-              ▶ Video, on Bluesky
-            </span>
-          </div>
-        )}
-        {post.external && (
-          <LinkCard
-            href={post.external.uri}
-            title={post.external.title}
-            description={post.external.description}
-            image={post.external.thumb}
-          />
-        )}
-        {post.quote && <BskyEmbed uri={post.quote} />}
+        <PostContent post={post} />
       </div>
       <div {...stylex.props(styles.aside)}>
         <a

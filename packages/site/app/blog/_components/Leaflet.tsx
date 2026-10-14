@@ -2,12 +2,11 @@ import "server-only";
 import { segmentize } from "@atcute/bluesky-richtext-segmenter";
 import { getBlobCidString } from "@atproto/lex";
 import { pub } from "@repo/atproto-client";
-import * as stylex from "@stylexjs/stylex";
 import { Fragment, type ReactNode } from "react";
-import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import type { LeafletPage } from "@/lib/data/blog";
 import { bskyProfileUrl, cdnImageUrl } from "@/lib/data/bluesky";
 import { CodeBlock } from "./CodeBlock";
+import { BackLink, Footnote, FootnoteRef, Footnotes } from "./Footnotes";
 import { LinkCard } from "./LinkCard";
 import { BskyEmbed } from "./PostEmbed";
 import {
@@ -34,47 +33,7 @@ type Facet = pub.leaflet.richtext.facet.Main;
 type ListItemValue =
   | pub.leaflet.blocks.unorderedList.ListItem
   | pub.leaflet.blocks.orderedList.ListItem;
-type Footnote = pub.leaflet.richtext.facet.Footnote;
-
-const styles = stylex.create({
-  footnoteRef: {
-    fontFamily: fonts.mono,
-    fontSize: "0.62em",
-    lineHeight: 0,
-    verticalAlign: "super",
-  },
-  footnoteLink: {
-    paddingInline: 2,
-    color: colors.ink,
-    textDecorationLine: {
-      default: "none",
-      ":hover": "underline",
-    },
-  },
-  footnotes: {
-    marginTop: "1em",
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.rule,
-    fontSize: fontSizes.body,
-    lineHeight: 1.55,
-    color: colors.subtle,
-  },
-  footnoteList: {
-    paddingLeft: "1.3em",
-  },
-  footnote: {
-    marginTop: "0.5em",
-    paddingLeft: "0.2em",
-    scrollMarginTop: 24,
-  },
-  backLink: {
-    marginLeft: 6,
-    color: colors.muted,
-    textDecorationLine: "none",
-  },
-});
+type LeafletFootnote = pub.leaflet.richtext.facet.Footnote;
 
 /**
  * A post written in Leaflet: its pages' blocks, in order, as the same prose
@@ -104,7 +63,7 @@ export function LeafletContent({
         )),
       )}
       {footnotes.length > 0 && (
-        <Footnotes footnotes={footnotes} context={context} />
+        <LeafletFootnotes footnotes={footnotes} context={context} />
       )}
     </Body>
   );
@@ -317,7 +276,7 @@ function RichText({
       return (
         <Fragment key={i}>
           {footnote ? (
-            <FootnoteRef id={footnote.footnoteId} context={context} />
+            <LeafletFootnoteRef id={footnote.footnoteId} context={context} />
           ) : (
             withFeatures(text, features)
           )}
@@ -379,8 +338,8 @@ function withFeatures(text: string, features: Facet["features"]) {
 }
 
 /** Footnotes in the order they're first referenced, as Leaflet numbers them. */
-function collectFootnotes(pages: LeafletPage[]): Footnote[] {
-  const found = new Map<string, Footnote>();
+function collectFootnotes(pages: LeafletPage[]): LeafletFootnote[] {
+  const found = new Map<string, LeafletFootnote>();
   const scan = (facets: Facet[] = []) => {
     for (const { features } of facets.toSorted(
       (a, b) => a.index.byteStart - b.index.byteStart,
@@ -421,56 +380,36 @@ function collectFootnotes(pages: LeafletPage[]): Footnote[] {
 /** Footnote ids are UUIDs; anything else isn't trusted in an `id`. */
 const footnoteId = (id: string) => `fn-${id.replace(/[^\w-]/g, "")}`;
 
-function FootnoteRef({ id, context }: { id: string; context: Context }) {
+function LeafletFootnoteRef({ id, context }: { id: string; context: Context }) {
   const number = context.footnotes.get(id);
   if (number === undefined) return null;
   const first = !context.referenced.has(id);
   context.referenced.add(id);
-  return (
-    <sup {...stylex.props(styles.footnoteRef)}>
-      <a
-        href={`#${footnoteId(id)}`}
-        id={first ? `${footnoteId(id)}-ref` : undefined}
-        aria-label={`Footnote ${number}`}
-        {...stylex.props(styles.footnoteLink)}
-      >
-        {number}
-      </a>
-    </sup>
-  );
+  return <FootnoteRef id={footnoteId(id)} number={number} first={first} />;
 }
 
-function Footnotes({
+function LeafletFootnotes({
   footnotes,
   context,
 }: {
-  footnotes: Footnote[];
+  footnotes: LeafletFootnote[];
   context: Context;
 }) {
   return (
-    <section aria-label="Footnotes" {...stylex.props(styles.footnotes)}>
-      <ol {...stylex.props(styles.footnoteList)}>
-        {footnotes.map((footnote) => (
-          <li
-            key={footnote.footnoteId}
-            id={footnoteId(footnote.footnoteId)}
-            {...stylex.props(styles.footnote)}
-          >
-            <RichText
-              text={footnote.contentPlaintext}
-              facets={footnote.contentFacets}
-              context={context}
-            />
-            <a
-              href={`#${footnoteId(footnote.footnoteId)}-ref`}
-              aria-label="Back to the text"
-              {...stylex.props(styles.backLink)}
-            >
-              ↩
-            </a>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <Footnotes>
+      {footnotes.map((footnote) => (
+        <Footnote
+          key={footnote.footnoteId}
+          id={footnoteId(footnote.footnoteId)}
+        >
+          <RichText
+            text={footnote.contentPlaintext}
+            facets={footnote.contentFacets}
+            context={context}
+          />
+          <BackLink id={footnoteId(footnote.footnoteId)} />
+        </Footnote>
+      ))}
+    </Footnotes>
   );
 }

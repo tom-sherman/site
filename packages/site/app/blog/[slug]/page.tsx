@@ -223,7 +223,7 @@ function PostBody({ post }: { post: Post }) {
     case "leaflet":
       return <LeafletContent did={post.body.did} pages={post.body.pages} />;
     case "thread":
-      return <Thread posts={post.body.posts} />;
+      return <Thread posts={post.body.posts} forks={post.body.forks} />;
     case "unsupported":
       // A thread is only unsupported when Bluesky can't be reached.
       return post.kind === "thread" ? (
