@@ -20,6 +20,9 @@ import { Title } from "./_components/Title";
 export const metadata: Metadata = {
   title: "Blog – Tom Sherman",
   description: "Writing by Tom Sherman, mostly about the web and TypeScript.",
+  alternates: {
+    types: { "application/rss+xml": "https://tom.sherman.is/blog/rss.xml" },
+  },
 };
 
 const styles = stylex.create({
