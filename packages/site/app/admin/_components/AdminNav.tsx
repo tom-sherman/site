@@ -30,6 +30,7 @@ const styles = stylex.create({
 const SECTIONS = [
   { href: "/admin", label: "Home" },
   { href: "/admin/posts", label: "Posts" },
+  { href: "/admin/threads", label: "Threads" },
 ];
 
 /**

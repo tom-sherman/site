@@ -9,6 +9,7 @@ import {
   fonts,
   fontSizes,
 } from "@/lib/components/tokens.stylex";
+import { ConfirmForm } from "../../_components/ConfirmForm";
 import {
   Button,
   Field,
@@ -247,20 +248,20 @@ export function PostEditor({ post }: { post: EditorPost }) {
 
 function DeleteForm({ rkey, published }: { rkey: string; published: boolean }) {
   return (
-    <form
-      action={deletePostAction}
-      onSubmit={(event) => {
-        const message = published
-          ? "Delete this post? It'll come off the blog too."
-          : "Delete this draft?";
-        if (!confirm(message)) event.preventDefault();
-      }}
-      {...stylex.props(styles.danger)}
-    >
-      <input type="hidden" name="rkey" value={rkey} />
-      <Button type="submit" variant="danger">
-        Delete
-      </Button>
-    </form>
+    <div {...stylex.props(styles.danger)}>
+      <ConfirmForm
+        action={deletePostAction}
+        message={
+          published
+            ? "Delete this post? It'll come off the blog too."
+            : "Delete this draft?"
+        }
+      >
+        <input type="hidden" name="rkey" value={rkey} />
+        <Button type="submit" variant="danger">
+          Delete
+        </Button>
+      </ConfirmForm>
+    </div>
   );
 }
