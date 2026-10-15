@@ -3,7 +3,7 @@
 import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { failureMessage } from "@/lib/admin/errors";
-import { text, untrimmed } from "@/lib/admin/form";
+import { tags, text, untrimmed } from "@/lib/admin/form";
 import {
   createDraft,
   deletePost,
@@ -72,13 +72,6 @@ function inputOf(form: FormData): PostInput {
     // Forms send textareas' line breaks as CRLF.
     markdown: untrimmed(form, "markdown").replaceAll("\r\n", "\n"),
     slug: slugify(text(form, "slug")),
-    tags: [
-      ...new Set(
-        text(form, "tags")
-          .split(",")
-          .map((tag) => tag.trim().replace(/^#/, ""))
-          .filter(Boolean),
-      ),
-    ],
+    tags: tags(form),
   };
 }

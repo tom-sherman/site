@@ -60,3 +60,7 @@ Changing it logs the CMS out. In development, when it's unset, `next dev` genera
 `/admin/posts` writes blog posts in Markdown. A post is a `com.whtwnd.blog.entry`, drafts included, with `visibility: "author"` while it's a draft. Publishing makes it `"url"` and creates a `site.standard.document` in this site's publication with the same rkey, whose `content` is an `is.sherman.unspecced.documentref` to the entry, as the posts migrated from WhiteWind have. The document carries the slug (its `path` is `/blog/{slug}-{rkey}`), the tags, and the Markdown as `textContent`. Unpublishing deletes the document and makes the entry a draft again.
 
 Reads of the blog's documents are tagged `blog` (`BLOG_TAG`), and every write updates the tag, so changes show up on the site straight away.
+
+### Threads
+
+`/admin/threads` publishes Bluesky threads as writing. It lists my top-level posts from `app.bsky.feed.getAuthorFeed` (`posts_no_replies`), a page at a time; picking one creates a `site.standard.document` whose `content` is an `is.sherman.unspecced.documentref` to that post, with `bskyPostRef`, the thread's text as `textContent`, the first post's date, and a `/blog/{rkey}` path (so its rkey is a TID made before it's created, in `lib/admin/tid.ts`). Threads are written on Bluesky, not here. Unpublishing deletes the document.
