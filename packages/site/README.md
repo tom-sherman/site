@@ -54,3 +54,9 @@ pnpm generate-session-key
 ```
 
 Changing it logs the CMS out. In development, when it's unset, `next dev` generates one on startup, so restarting it logs out.
+
+### Posts
+
+`/admin/posts` writes blog posts in Markdown. A post is a `com.whtwnd.blog.entry`, drafts included, with `visibility: "author"` while it's a draft. Publishing makes it `"url"` and creates a `site.standard.document` in this site's publication with the same rkey, whose `content` is an `is.sherman.unspecced.documentref` to the entry, as the posts migrated from WhiteWind have. The document carries the slug (its `path` is `/blog/{slug}-{rkey}`), the tags, and the Markdown as `textContent`. Unpublishing deletes the document and makes the entry a draft again.
+
+Reads of the blog's documents are tagged `blog` (`BLOG_TAG`), and every write updates the tag, so changes show up on the site straight away.

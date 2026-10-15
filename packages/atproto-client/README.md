@@ -6,7 +6,7 @@ Installed lexicons: `app.bsky.actor.getProfiles`, `app.bsky.feed.getPostThread`,
 
 Authored here: `is.sherman.unspecced.home.pinned`, `is.sherman.unspecced.documentref` (see [Our own lexicons](#our-own-lexicons))
 
-Vendored: `games.atmosphere.status` (see [Vendored lexicons](#vendored-lexicons))
+Vendored: `games.atmosphere.status`, `com.whtwnd.blog.entry` (see [Vendored lexicons](#vendored-lexicons))
 
 ## Usage
 
@@ -108,6 +108,7 @@ They're unspecced: records only this site reads, so the lexicons aren't publishe
 Some third-party lexicons aren't published where `lex install` can resolve them, so they're copied in by hand. Like our own lexicons, they aren't in `lexicons.json`, so `lex install` leaves them alone; export their namespace from `src/index.ts`.
 
 - `games.atmosphere.status`: live game presence. Copied from https://atmosphere.games/lexicons/games.atmosphere.status.json (source: https://tangled.org/atmosphere.games/lexicons). It's still a draft, so re-copy it when it changes.
+- `com.whtwnd.blog.entry` and `com.whtwnd.blog.defs`, which it references: WhiteWind blog posts, which hold the Markdown of my blog posts. Copied from https://github.com/whtwnd/whitewind-blog/tree/main/lexicons/com/whtwnd/blog. WhiteWind doesn't publish its lexicons for resolution.
 
 ### Notes
 
