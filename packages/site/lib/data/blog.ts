@@ -1,7 +1,7 @@
 import "server-only";
 import { getBlobCidString, lexParse } from "@atproto/lex";
 import { app, is, pub, site } from "@repo/atproto-client";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import {
   getRecordOrNull,
   orNotFound,
@@ -35,6 +35,12 @@ const PUBLICATIONS = [
 
 /** This site's `site.standard.publication`. */
 export const PUBLICATION = PUBLICATIONS[0].uri;
+
+/**
+ * The cache tag on everything read from the blog's documents, which the CMS
+ * updates when it changes one.
+ */
+export const BLOG_TAG = "blog";
 
 export interface BlogPost {
   /** The document's at-uri. */
@@ -79,6 +85,7 @@ export function rkeyOf(segment: string): string | undefined {
 export async function getBlog(): Promise<Blog> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(BLOG_TAG);
 
   const asOf = Date.now();
   const client = await pdsClient(DID);
@@ -162,6 +169,7 @@ export interface Post extends BlogPost {
 export async function getPost(rkey: string): Promise<Post | null> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(BLOG_TAG);
 
   const client = await pdsClient(DID);
   const doc = await orNotFound(

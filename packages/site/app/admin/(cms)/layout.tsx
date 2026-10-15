@@ -5,7 +5,7 @@ import { colors, fonts, fontSizes } from "@/lib/components/tokens.stylex";
 import { getProfile } from "@/lib/data/profile";
 import { Breadcrumb } from "../../_components/Breadcrumb";
 import { logOutAction } from "../actions";
-import { AdminNav } from "../_components/AdminNav";
+import { AdminNav, NavLinks } from "../_components/AdminNav";
 import { Button } from "../_components/controls";
 
 const styles = stylex.create({
@@ -42,7 +42,9 @@ export default async function CmsLayout({ children }: LayoutProps<"/admin">) {
     <>
       <div {...stylex.props(styles.bar)}>
         <Breadcrumb domain={domain} trail={[{ label: "admin" }]} />
-        <AdminNav />
+        <Suspense fallback={<NavLinks />}>
+          <AdminNav />
+        </Suspense>
         <form action={logOutAction} {...stylex.props(styles.logOut)}>
           <Button type="submit">Log out</Button>
         </form>

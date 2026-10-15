@@ -1,9 +1,9 @@
 import "server-only";
 import { getBlobCidString } from "@atproto/lex";
 import { is, site } from "@repo/atproto-client";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getRecordOrNull, orNotFound, parseAtUri, pdsClient } from "./atproto";
-import { threadRootOf, toBlogPost } from "./blog";
+import { BLOG_TAG, threadRootOf, toBlogPost } from "./blog";
 import {
   bskyUrl,
   cdnImageUrl,
@@ -42,6 +42,8 @@ type Found = PinnedItem & { root?: string };
 export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
   cacheLife("minutes");
+  // Pins show their documents' titles.
+  cacheTag(BLOG_TAG);
 
   const client = await pdsClient(DID);
   const pinned = await orNotFound(

@@ -27,16 +27,26 @@ const styles = stylex.create({
   },
 });
 
-const SECTIONS = [{ href: "/admin", label: "Home" }];
+const SECTIONS = [
+  { href: "/admin", label: "Home" },
+  { href: "/admin/posts", label: "Posts" },
+];
 
-/** The CMS's sections. The one I'm in is underlined. */
+/**
+ * The CMS's sections. The one I'm in is underlined, once the URL's known: on
+ * a dynamic route, that's only at runtime, so it's behind a boundary whose
+ * fallback is {@link NavLinks} without one.
+ */
 export function AdminNav() {
-  const pathname = usePathname();
+  return <NavLinks pathname={usePathname()} />;
+}
+
+export function NavLinks({ pathname }: { pathname?: string }) {
   return (
     <nav aria-label="CMS" {...stylex.props(styles.nav)}>
       {SECTIONS.map(({ href, label }) => {
         const current =
-          href === "/admin" ? pathname === href : pathname.startsWith(href);
+          href === "/admin" ? pathname === href : pathname?.startsWith(href);
         return (
           <Link
             key={href}

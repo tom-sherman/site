@@ -45,6 +45,12 @@ export function formatDateTime(ts: Timestamp): string {
   return `${pad(day)}.${pad(month)}.${year}, ${pad(hour)}:${pad(minute)}`;
 }
 
+/** `04.10.2026` */
+export function formatDate(ts: Timestamp): string {
+  const { year, month, day } = zonedParts(ts);
+  return `${pad(day)}.${pad(month)}.${year}`;
+}
+
 /** `04.10` */
 export function formatShortDate(ts: Timestamp): string {
   const { month, day } = zonedParts(ts);
