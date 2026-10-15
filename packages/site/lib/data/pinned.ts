@@ -29,6 +29,9 @@ export interface PinnedItem {
 
 type Pin = is.sherman.unspecced.home.pinned.Item;
 
+/** The cache tag on the pins, which the CMS updates when it changes them. */
+export const PINNED_TAG = "pinned";
+
 /** A pinned thread's first post, until its image is hydrated. */
 type Found = PinnedItem & { root?: string };
 
@@ -43,7 +46,7 @@ export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
   cacheLife("minutes");
   // Pins show their documents' titles.
-  cacheTag(BLOG_TAG);
+  cacheTag(PINNED_TAG, BLOG_TAG);
 
   const client = await pdsClient(DID);
   const pinned = await orNotFound(

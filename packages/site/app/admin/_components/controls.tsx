@@ -11,7 +11,7 @@ const styles = stylex.create({
     appearance: "none",
     cursor: {
       default: "pointer",
-      ":disabled": "progress",
+      ":disabled": "default",
     },
     display: "inline-flex",
     alignItems: "center",

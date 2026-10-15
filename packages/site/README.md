@@ -64,3 +64,7 @@ Reads of the blog's documents are tagged `blog` (`BLOG_TAG`), and every write up
 ### Threads
 
 `/admin/threads` publishes Bluesky threads as writing. It lists my top-level posts from `app.bsky.feed.getAuthorFeed` (`posts_no_replies`), a page at a time; picking one creates a `site.standard.document` whose `content` is an `is.sherman.unspecced.documentref` to that post, with `bskyPostRef`, the thread's text as `textContent`, the first post's date, and a `/blog/{rkey}` path (so its rkey is a TID made before it's created, in `lib/admin/tid.ts`). Threads are written on Bluesky, not here. Unpublishing deletes the document.
+
+### Pins
+
+`/admin/pins` edits `is.sherman.unspecced.home.pinned/self`: what's pinned, in order, and which are cards (`hero`). Any of my `site.standard.document`s can be pinned. Each change rewrites the record from its current state and updates the `pinned` cache tag (`PINNED_TAG`).
