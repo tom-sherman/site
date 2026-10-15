@@ -44,7 +44,8 @@ type Found = PinnedItem & { root?: string };
  */
 export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
-  cacheLife("minutes");
+  // Writes through the CMS update the tags.
+  cacheLife("days");
   // Pins show their documents' titles.
   cacheTag(PINNED_TAG, BLOG_TAG);
 
