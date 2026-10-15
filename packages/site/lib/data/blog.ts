@@ -84,7 +84,9 @@ export function rkeyOf(segment: string): string | undefined {
 /** My `site.standard.document`s in the blog's {@link PUBLICATIONS}. */
 export async function getBlog(): Promise<Blog> {
   "use cache";
-  cacheLife("minutes");
+  // Writes through the CMS update the tag; this is for anything else, like
+  // a post edited on Leaflet.
+  cacheLife("days");
   cacheTag(BLOG_TAG);
 
   const asOf = Date.now();
@@ -168,7 +170,8 @@ export interface Post extends BlogPost {
 /** The blog post with this rkey, or `null` if there isn't one. */
 export async function getPost(rkey: string): Promise<Post | null> {
   "use cache";
-  cacheLife("minutes");
+  // Not days like the list: a thread's replies and counts are Bluesky's.
+  cacheLife("hours");
   cacheTag(BLOG_TAG);
 
   const client = await pdsClient(DID);
@@ -225,7 +228,7 @@ async function getBody(content: unknown, did: string): Promise<PostBody> {
 /**
  * A thread's posts, from Bluesky's AppView, which has their counts too. If
  * it can't be read, the post is shown as unsupported for now; it's only
- * cached for minutes.
+ * cached for an hour.
  */
 async function getThreadBody(root: string): Promise<PostBody> {
   const thread = await getThread(root).catch((error: unknown) => {
