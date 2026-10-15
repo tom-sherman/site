@@ -8,7 +8,8 @@
         "ACTIVITY_CACHE_URL",
         "ACTIVITY_CACHE_AUDIENCE",
         "OIDC_SIGNING_KEYS",
-        "VERCEL_PROJECT_PRODUCTION_URL"
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        "CMS_SESSION_KEY"
       ]
     },
     "dev": {
@@ -17,7 +18,8 @@
         "PORT",
         "ACTIVITY_CACHE_URL",
         "ACTIVITY_CACHE_AUDIENCE",
-        "OIDC_SIGNING_KEYS"
+        "OIDC_SIGNING_KEYS",
+        "CMS_SESSION_KEY"
       ]
     }
   }

@@ -11,6 +11,7 @@ const serverEnv = {
   ACTIVITY_CACHE_AUDIENCE: process.env.ACTIVITY_CACHE_AUDIENCE,
   OIDC_SIGNING_KEYS: process.env.OIDC_SIGNING_KEYS,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  CMS_SESSION_KEY: process.env.CMS_SESSION_KEY,
 };
 
 type EnvName = keyof typeof serverEnv;

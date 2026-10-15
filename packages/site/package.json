@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "oxlint",
     "check-types": "next typegen && tsc --noEmit",
-    "generate-signing-key": "node scripts/generate-signing-key.mts"
+    "generate-signing-key": "node scripts/generate-signing-key.mts",
+    "generate-session-key": "node scripts/generate-session-key.mts"
   },
   "dependencies": {
     "@atcute/bluesky-richtext-segmenter": "^3.0.2",
