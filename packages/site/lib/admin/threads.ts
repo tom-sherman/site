@@ -46,14 +46,18 @@ export interface PublishedThread {
  * My posts, newest first, a page at a time from Bluesky's AppView: only
  * ones that start something, so no replies or reposts.
  */
-export async function getMyPosts(
-  cursor?: string,
-): Promise<{ posts: MyPost[]; cursor?: string }> {
+export async function getMyPosts({
+  cursor,
+  limit = 30,
+}: { cursor?: string; limit?: number } = {}): Promise<{
+  posts: MyPost[];
+  cursor?: string;
+}> {
   const [feed, threads] = await Promise.all([
     appview.call(app.bsky.feed.getAuthorFeed, {
       actor: DID,
       filter: "posts_no_replies",
-      limit: 30,
+      limit,
       cursor,
     }),
     listThreads(),

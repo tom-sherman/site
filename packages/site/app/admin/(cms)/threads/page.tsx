@@ -82,7 +82,7 @@ export default async function ThreadsPage({
   const { cursor } = await searchParams;
   const [threads, mine] = await Promise.all([
     listThreads(),
-    getMyPosts(typeof cursor === "string" ? cursor : undefined),
+    getMyPosts({ cursor: typeof cursor === "string" ? cursor : undefined }),
   ]);
   return (
     <>
