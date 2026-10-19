@@ -8,6 +8,8 @@
     "app.bsky.feed.post",
     "app.bsky.feed.repost",
     "app.bsky.graph.follow",
+    "com.atproto.server.createSession",
+    "com.atproto.server.refreshSession",
     "com.atproto.sync.getLatestCommit",
     "com.atproto.sync.getRepo",
     "fm.teal.actor.status",
@@ -145,9 +147,17 @@
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.repo.strongRef",
       "cid": "bafyreifrkdbnkvfjujntdaeigolnrjj3srrs53tfixjhmacclps72qlov4"
     },
+    "com.atproto.server.createSession": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.createSession",
+      "cid": "bafyreieftxrfcsudzvfk5l73r2cukzwa6axzkfjs2l7dxtieyqnkdngwsq"
+    },
     "com.atproto.server.defs": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.defs",
       "cid": "bafyreie6rctvespvjvdsway3keyu5yy25eqordhq44jmkxbf6roirlidwm"
+    },
+    "com.atproto.server.refreshSession": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.refreshSession",
+      "cid": "bafyreie5cdpsl3ibp473xuycfxakryp5svq4gzdcwnfdzwm5xkxyzux2ly"
     },
     "com.atproto.sync.getLatestCommit": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getLatestCommit",
