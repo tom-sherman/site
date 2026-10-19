@@ -19,7 +19,7 @@ export const TOM: Person = {
   avatar: { alt: "Tom Sherman" },
 };
 
-export async function getProfile(): Promise<Profile> {
+export function getProfile(): Profile {
   return {
     givenName: "Tom",
     familyName: "Sherman",

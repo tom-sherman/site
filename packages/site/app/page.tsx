@@ -70,8 +70,8 @@ const styles = stylex.create({
 });
 
 export default async function Home() {
-  const [profile, feed, pinned] = await Promise.all([
-    getProfile(),
+  const profile = getProfile();
+  const [feed, pinned] = await Promise.all([
     getFeed(),
     // Pins are extras; a broken PDS shouldn't take the page down with it.
     getPinned().catch((error: unknown) => {

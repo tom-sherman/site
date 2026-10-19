@@ -16,10 +16,15 @@ export function parseAtUri(uri: string) {
   return { repo: repo as Did, collection, rkey };
 }
 
-/** A client for the PDS hosting `did`. */
-export async function pdsClient(did: string) {
-  return new Client(await resolvePds(did));
+/** A client for the PDS hosting `did`, which is resolved on each request. */
+export function pdsClient(did: string) {
+  return new Client(async (path, init) =>
+    fetch(new URL(path, await resolvePds(did)), init),
+  );
 }
+
+/** A client for my PDS. */
+export const myPds = pdsClient(DID);
 
 /** `null` when the record doesn't exist. */
 export async function orNotFound<T>(request: Promise<T>): Promise<T | null> {

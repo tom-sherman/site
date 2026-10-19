@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   cacheComponents: true,
   // Links into the old site at tom-sherman.com, which redirects here.
-  redirects: async () => [
+  redirects: () => [
     ...Object.entries(LEGACY_POSTS).map(([slug, destination]) => ({
       source: `/blog/${slug}`,
       destination,

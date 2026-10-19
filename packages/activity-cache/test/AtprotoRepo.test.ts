@@ -136,14 +136,16 @@ const mockNetwork = (network: Network) =>
     ),
   );
 
-const serveCar = (car: Uint8Array) => async () =>
-  new Response(car, {
-    headers: { "content-type": "application/vnd.ipld.car" },
-  });
+const serveCar = (car: Uint8Array) => () =>
+  Promise.resolve(
+    new Response(car, {
+      headers: { "content-type": "application/vnd.ipld.car" },
+    }),
+  );
 
 const network = (overrides: Partial<Network>): Network => ({
-  getRepo: async () => new Response(null, { status: 500 }),
-  getLatestCommit: async () => new Response(null, { status: 500 }),
+  getRepo: () => Promise.resolve(new Response(null, { status: 500 })),
+  getLatestCommit: () => Promise.resolve(new Response(null, { status: 500 })),
   calls: [],
   ...overrides,
 });
@@ -337,7 +339,7 @@ describe("AtprotoRepo", () => {
       const { car, rev, cid } = yield* Effect.promise(() => buildCar());
       const net = network({
         getRepo: serveCar(car),
-        getLatestCommit: async () => Response.json({ cid, rev }),
+        getLatestCommit: () => Promise.resolve(Response.json({ cid, rev })),
       });
       const result = yield* snapshot({ since: 0, checkpoint: rev }).pipe(
         Effect.provide(mockNetwork(net)),
@@ -352,7 +354,7 @@ describe("AtprotoRepo", () => {
       const { car, rev, cid } = yield* Effect.promise(() => buildCar());
       const net = network({
         getRepo: serveCar(car),
-        getLatestCommit: async () => Response.json({ cid, rev }),
+        getLatestCommit: () => Promise.resolve(Response.json({ cid, rev })),
       });
       const result = yield* snapshot({
         since: 0,
@@ -369,10 +371,12 @@ describe("AtprotoRepo", () => {
         Effect.provide(
           mockNetwork(
             network({
-              getRepo: async () =>
-                Response.json(
-                  { error: "RepoNotFound", message: "Could not find repo" },
-                  { status: 400 },
+              getRepo: () =>
+                Promise.resolve(
+                  Response.json(
+                    { error: "RepoNotFound", message: "Could not find repo" },
+                    { status: 400 },
+                  ),
                 ),
             }),
           ),
@@ -395,10 +399,12 @@ describe("AtprotoRepo", () => {
     Effect.gen(function* () {
       const resetAt = Math.floor(Date.now() / 1000) + 600;
       const net = network({
-        getLatestCommit: async () =>
-          Response.json(
-            { error: "RateLimitExceeded", message: "Rate Limit Exceeded" },
-            { status: 429, headers: { "ratelimit-reset": String(resetAt) } },
+        getLatestCommit: () =>
+          Promise.resolve(
+            Response.json(
+              { error: "RateLimitExceeded", message: "Rate Limit Exceeded" },
+              { status: 429, headers: { "ratelimit-reset": String(resetAt) } },
+            ),
           ),
       });
       const exit = yield* snapshot({

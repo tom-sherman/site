@@ -127,11 +127,8 @@ export default async function BlogPostPage({
   params,
 }: PageProps<"/blog/[slug]">) {
   const { slug } = await params;
-  const [profile, post, { asOf }] = await Promise.all([
-    getProfile(),
-    postFor(slug),
-    getBlog(),
-  ]);
+  const profile = getProfile();
+  const [post, { asOf }] = await Promise.all([postFor(slug), getBlog()]);
   if (!post) notFound();
   // An old or mistyped slug: the rkey matched, so send it to the current one.
   if (post.path !== `/blog/${slug}`) permanentRedirect(post.path);

@@ -2,7 +2,13 @@ import "server-only";
 import { getBlobCidString } from "@atproto/lex";
 import { is, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
-import { getRecordOrNull, orNotFound, parseAtUri, pdsClient } from "./atproto";
+import {
+  getRecordOrNull,
+  myPds,
+  orNotFound,
+  parseAtUri,
+  pdsClient,
+} from "./atproto";
 import { threadRootOf, toBlogPost } from "./blog";
 import {
   bskyUrl,
@@ -43,9 +49,8 @@ export async function getPinned(): Promise<PinnedItem[]> {
   "use cache";
   cacheLife("minutes");
 
-  const client = await pdsClient(DID);
   const pinned = await orNotFound(
-    client.get(is.sherman.unspecced.home.pinned, { repo: DID }),
+    myPds.get(is.sherman.unspecced.home.pinned, { repo: DID }),
   );
   if (!pinned) return [];
 
@@ -83,7 +88,7 @@ async function getPinnedItem({
     console.warn(`Can't show pinned ${uri}`);
     return null;
   }
-  const client = await pdsClient(ref.repo);
+  const client = pdsClient(ref.repo);
   const doc = await orNotFound(
     client.get(site.standard.document, { repo: ref.repo, rkey: ref.rkey }),
   );
@@ -153,7 +158,7 @@ async function documentUrl({
   const record =
     publication &&
     (await getRecordOrNull(
-      await pdsClient(publication.repo),
+      pdsClient(publication.repo),
       publication.collection,
       publication.rkey,
       publication.repo,

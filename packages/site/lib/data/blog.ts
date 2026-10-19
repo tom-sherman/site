@@ -4,6 +4,7 @@ import { app, is, pub, site } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
 import {
   getRecordOrNull,
+  myPds,
   orNotFound,
   parseAtUri,
   pdsClient,
@@ -81,9 +82,8 @@ export async function getBlog(): Promise<Blog> {
   cacheLife("minutes");
 
   const asOf = Date.now();
-  const client = await pdsClient(DID);
   const posts: BlogPost[] = [];
-  for await (const doc of client.listAll(site.standard.document, {
+  for await (const doc of myPds.listAll(site.standard.document, {
     repo: DID,
     limit: 100,
   })) {
@@ -163,9 +163,8 @@ export async function getPost(rkey: string): Promise<Post | null> {
   "use cache";
   cacheLife("minutes");
 
-  const client = await pdsClient(DID);
   const doc = await orNotFound(
-    client.get(site.standard.document, { repo: DID, rkey }),
+    myPds.get(site.standard.document, { repo: DID, rkey }),
   );
   const summary = doc && toBlogPost(doc.uri, doc.value);
   if (!summary) return null;
@@ -236,7 +235,7 @@ async function getReferencedBody(uri: string): Promise<PostBody> {
   }
   // WhiteWind doesn't publish its lexicon, so only `content` is checked.
   const entry = await getRecordOrNull(
-    await pdsClient(ref.repo),
+    pdsClient(ref.repo),
     ref.collection,
     ref.rkey,
     ref.repo,

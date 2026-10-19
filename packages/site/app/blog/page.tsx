@@ -131,10 +131,8 @@ const styles = stylex.create({
 });
 
 export default async function BlogPage() {
-  const [profile, { posts, asOf }] = await Promise.all([
-    getProfile(),
-    getBlog(),
-  ]);
+  const profile = getProfile();
+  const { posts, asOf } = await getBlog();
   const years = Map.groupBy(posts, (post) => formatYear(post.publishedAt));
 
   return (

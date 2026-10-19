@@ -7,7 +7,7 @@ import {
 } from "@atproto/lex";
 import { fm, games } from "@repo/atproto-client";
 import { cacheLife } from "next/cache";
-import { getRecordOrNull, parseAtUri, pdsClient } from "./atproto";
+import { getRecordOrNull, myPds, parseAtUri, pdsClient } from "./atproto";
 import { cdnImageUrl } from "./bluesky";
 import { getAlbumArt, lastFmArtistUrl } from "./music";
 import { DID } from "./profile";
@@ -58,7 +58,6 @@ export async function getNowStatus(): Promise<NowStatus> {
   cacheLife("seconds");
 
   const now = Date.now();
-  const client = pdsClient(DID);
   // A broken source shouldn't take the other down with it, or the page.
   const presences = await Promise.all(
     (
@@ -67,12 +66,10 @@ export async function getNowStatus(): Promise<NowStatus> {
         ["playing", getPlaying],
       ] as const
     ).map(([label, get]) =>
-      client
-        .then((c) => get(c, now))
-        .catch((error: unknown) => {
-          console.error(`Couldn't get ${label} status`, error);
-          return ABSENT;
-        }),
+      get(myPds, now).catch((error: unknown) => {
+        console.error(`Couldn't get ${label} status`, error);
+        return ABSENT;
+      }),
     ),
   );
 
@@ -242,7 +239,7 @@ async function getGame(uri: string): Promise<Game | null> {
   const parts = parseAtUri(uri);
   if (!parts) return null;
   const { repo, collection, rkey } = parts;
-  const client = await pdsClient(repo);
+  const client = pdsClient(repo);
   const record = await getRecordOrNull(client, collection, rkey, repo);
   if (!record) return null;
 

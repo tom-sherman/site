@@ -5,7 +5,7 @@ import { issuer } from "@/lib/oidc";
  * its keys. Only what's needed to verify tokens: the site has no
  * authorization or token endpoint, because it only issues tokens to itself.
  */
-export async function GET() {
+export function GET() {
   const iss = issuer();
   return Response.json({
     issuer: iss,

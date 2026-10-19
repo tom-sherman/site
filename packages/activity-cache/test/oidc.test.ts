@@ -166,8 +166,8 @@ describe("OidcVerifier", () => {
         );
       },
     ],
-    ["garbage", async () => Redacted.make("not-a-jwt")],
-    ["an empty token", async () => Redacted.make("")],
+    ["garbage", () => Promise.resolve(Redacted.make("not-a-jwt"))],
+    ["an empty token", () => Promise.resolve(Redacted.make(""))],
   ];
   for (const [name, makeToken] of rejected) {
     it.effect(`rejects ${name}`, () =>

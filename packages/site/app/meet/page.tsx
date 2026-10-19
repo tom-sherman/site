@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function MeetPage() {
-  const profile = await getProfile();
+export default function MeetPage() {
+  const profile = getProfile();
 
   return (
     <>

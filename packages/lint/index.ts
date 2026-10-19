@@ -20,6 +20,8 @@ export default defineConfig({
   rules: {
     // `_` marks a parameter that's there for its type or position.
     "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    // An async function with nothing to await needn't return a promise.
+    "typescript/require-await": "error",
     // Env vars must be declared in turbo.json so they're part of task hashes.
     "turbo/no-undeclared-env-vars": "error",
   },

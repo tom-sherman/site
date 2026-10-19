@@ -165,7 +165,10 @@ export class Jetstream extends Context.Service<
                 cursor:
                   start === undefined
                     ? undefined
-                    : { load: async () => start, save: async () => {} },
+                    : {
+                        load: () => Promise.resolve(start),
+                        save: () => Promise.resolve(),
+                      },
                 signal: controller.signal,
                 onInfo: (info) =>
                   infos.push({
