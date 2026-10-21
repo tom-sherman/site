@@ -9,7 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@12.15.0",
   "devDependencies": {
     "prettier": "^3.9.9",
     "turbo": "^2.11.7"

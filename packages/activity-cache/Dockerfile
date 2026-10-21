@@ -6,7 +6,7 @@
 # directly; only @repo/atproto-client needs building.
 
 FROM node:26-alpine AS base
-ARG PNPM_VERSION=12.4.1
+ARG PNPM_VERSION=12.5.0
 ENV PNPM_HOME=/pnpm \
     TURBO_TELEMETRY_DISABLED=1
 ENV PATH="$PNPM_HOME:$PATH"
